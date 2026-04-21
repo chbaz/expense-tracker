@@ -807,7 +807,7 @@ async function sendOTP() {
   const btn = document.querySelector('#step-email .login-btn');
   btn.disabled = true; btn.textContent = 'Sending…';
 
-  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: 'https://chbaz.github.io/expense-tracker/' } });
   btn.disabled = false; btn.textContent = 'Send Login Code';
 
   if (error) { showLoginError(error.message); return; }
