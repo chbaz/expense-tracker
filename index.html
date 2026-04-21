@@ -854,23 +854,29 @@ async function signOut() {
   backToEmail();
 }
 
-// Listen for auth state changes
+// Check for existing session on load
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user) {
+    currentUser = session.user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  }
+});
+
+// Listen for auth state changes (handles magic link redirect)
 db.auth.onAuthStateChange((event, session) => {
   if (session?.user) {
     currentUser = session.user;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     initApp();
-  } else {
+  } else if (event === 'SIGNED_OUT') {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
   }
 });
 
-// OTP input: auto-verify when 6 digits entered
-document.getElementById('login-otp').addEventListener('input', function() {
-  if (this.value.length === 6) verifyOTP();
-});
 
 // Allow Enter key on email field
 document.getElementById('login-email').addEventListener('keydown', function(e) {
