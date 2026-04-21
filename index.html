@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Studio Tracker">
+<meta name="theme-color" content="#9b6b47">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Studio Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --surface-warm: #f7f3ee;
+  --border: #e8e1d9;
+  --text: #2c2420;
+  --text-muted: #8a7e78;
+  --accent: #9b6b47;
+  --accent-light: #f2ebe3;
+  --accent-hover: #7d5438;
+  --green: #5a7a5e;
+  --green-light: #eaf0eb;
+  --red: #a04040;
+  --red-light: #f5eaea;
+  --shadow: 0 1px 3px rgba(44,36,32,0.08), 0 4px 16px rgba(44,36,32,0.04);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Login ── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--bg);
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.login-logo {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.login-card h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.login-card p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin-bottom: 1.75rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.login-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.login-field input {
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font);
+  width: 100%;
+  transition: border-color 0.15s;
+  letter-spacing: 0.05em;
+}
+
+.login-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(155,107,71,0.12);
+}
+
+.otp-input {
+  font-size: 1.6rem !important;
+  letter-spacing: 0.35em !important;
+  text-align: center;
+  font-weight: 700;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 0.25rem;
+}
+.login-btn:hover { background: var(--accent-hover); }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.login-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 1rem;
+}
+
+.login-hint a {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-error {
+  background: var(--red-light);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  font-size: 13.5px;
+  margin-bottom: 1rem;
+  display: none;
+}
+
+/* ── App shell ── */
+#app { display: none; }
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  gap: 1rem;
+}
+
+.logo { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; white-space: nowrap; }
+
+nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
+
+nav button {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+nav button:hover { background: var(--surface-warm); color: var(--text); }
+nav button.active { background: var(--accent-light); color: var(--accent); }
+
+.signout-btn {
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.signout-btn:hover { color: var(--red); background: var(--red-light); }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Loading spinner ── */
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  gap: 10px;
+}
+
+.spin {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Period / Filters ── */
+.period-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.period-bar label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+.period-bar input[type="date"],
+.period-bar select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--accent-light);
+  color: var(--accent);
+  transition: background 0.15s;
+}
+.btn-sm:hover { background: var(--accent); color: #fff; }
+
+/* ── Stats ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.stat-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+.stat-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+.stat-card.expenses .stat-value { color: var(--accent); }
+.stat-card.hours .stat-value { color: var(--green); }
+.stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── Cards / Forms ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+
+.card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+
+label { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font);
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(155,107,71,0.12);
+}
+
+textarea { resize: vertical; min-height: 72px; }
+
+.form-actions { display: flex; gap: 10px; margin-top: 1.25rem; flex-wrap: wrap; }
+
+.btn {
+  padding: 9px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface-warm); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--red-light); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #4a6a4e; }
+
+/* ── Filters ── */
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11.5px; }
+
+/* ── Entry rows ── */
+.entries-list { display: flex; flex-direction: column; gap: 8px; }
+
+.entry-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(44,36,32,0.04);
+}
+
+.entry-date { font-size: 12.5px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+
+.entry-desc { font-size: 14.5px; font-weight: 600; }
+.entry-meta { display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
+.badge-expense { background: var(--accent-light); color: var(--accent); }
+.badge-hours { background: var(--green-light); color: var(--green); }
+.badge-category { background: var(--surface-warm); color: var(--text-muted); border: 1px solid var(--border); }
+
+.entry-notes { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-style: italic; }
+
+.entry-amount { font-size: 16px; font-weight: 700; white-space: nowrap; text-align: right; }
+.amount-expense { color: var(--accent); }
+.amount-hours { color: var(--green); }
+
+.entry-actions { display: flex; gap: 6px; }
+
+.icon-btn {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s;
+}
+.icon-btn:hover { background: var(--surface-warm); }
+.icon-btn.delete:hover { background: var(--red-light); border-color: var(--red); }
+
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.empty-state p { font-size: 14px; }
+
+/* ── Totals row ── */
+.totals-row {
+  display: flex;
+  gap: 1rem;
+  padding: 12px 16px;
+  background: var(--surface-warm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.total-item { display: flex; flex-direction: column; gap: 1px; }
+.total-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
+.total-value { font-size: 16px; font-weight: 700; }
+.total-value.expense { color: var(--accent); }
+.total-value.hours { color: var(--green); }
+
+/* ── Export / Print ── */
+.export-options { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+
+.print-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-top: 1.5rem; }
+.print-preview h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
+.print-preview .period { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
+.print-section { margin-bottom: 1.75rem; }
+.print-section h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+.print-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.print-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 4px 8px; }
+.print-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+.print-table tr:last-child td { border-bottom: none; }
+.print-totals { display: flex; gap: 2rem; padding: 1rem; background: var(--surface-warm); border-radius: var(--radius-sm); margin-top: 1rem; flex-wrap: wrap; }
+.print-total-item { display: flex; flex-direction: column; gap: 2px; }
+.print-total-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
+.print-total-value { font-size: 1.3rem; font-weight: 700; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #2c2420;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+  z-index: 999;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── Modal ── */
+.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(44,36,32,0.4); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 1.75rem; width: 100%; max-width: 520px; box-shadow: 0 8px 32px rgba(44,36,32,0.18); max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+/* ── Recent label ── */
+.recent-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; margin-top: 1.5rem; }
+
+/* ── Bottom nav (mobile) ── */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.bottom-nav-inner { display: flex; justify-content: space-around; }
+
+.tab-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer;
+  padding: 4px 10px; border-radius: var(--radius-sm);
+  min-width: 56px;
+}
+.tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+.tab-btn .tab-label { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+.tab-btn.active .tab-label { color: var(--accent); }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  header { display: none; }
+  .bottom-nav { display: block; }
+
+  main { padding: 1.25rem 1rem; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .card { padding: 1.25rem; }
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .stat-value { font-size: 1.5rem; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-group.full { grid-column: 1; }
+
+  .entry-row { grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 6px; }
+  .entry-date { font-size: 11.5px; }
+  .entry-amount { font-size: 15px; grid-column: 2; grid-row: 1; }
+  .entry-actions { grid-column: 2; grid-row: 2; }
+
+  .period-bar { gap: 8px; }
+  .print-totals { flex-direction: column; gap: 0.75rem; }
+  .login-card { padding: 2rem 1.5rem; }
+}
+
+@media print {
+  header, nav, .bottom-nav, .filters, .period-bar, .form-actions,
+  .entry-actions, .icon-btn, .btn, .btn-sm, #toast, .export-options { display: none !important; }
+  body { background: #fff; }
+  .view { display: block !important; }
+  .view:not(#view-export) { display: none !important; }
+  .print-preview { border: none; padding: 0; }
+  main { padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Login Screen ── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🌿</div>
+    <h1>Studio Tracker</h1>
+    <p id="login-subtitle">Sign in to access your expenses and hours</p>
+
+    <div id="login-error" class="login-error"></div>
+
+    <!-- Step 1: Email -->
+    <div id="step-email">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@email.com" autocomplete="email">
+      </div>
+      <button class="login-btn" onclick="sendOTP()">Send Login Code</button>
+      <p class="login-hint">We'll email you a 6-digit code — no password needed.</p>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="step-otp" style="display:none;">
+      <div class="login-field">
+        <label>6-Digit Code</label>
+        <input type="text" id="login-otp" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <button class="login-btn" onclick="verifyOTP()">Sign In</button>
+      <p class="login-hint"><a onclick="backToEmail()">Use a different email</a> · <a onclick="sendOTP()">Resend code</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div id="app">
+  <header>
+    <div class="header-inner">
+      <div class="logo">🌿 Studio Tracker</div>
+      <nav>
+        <button class="active" onclick="showView('dashboard')">Dashboard</button>
+        <button onclick="showView('expenses')">Add Expense</button>
+        <button onclick="showView('hours')">Add Hours</button>
+        <button onclick="showView('entries')">All Entries</button>
+        <button onclick="showView('export')">Export</button>
+      </nav>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <div id="view-dashboard" class="view active">
+      <div class="period-bar">
+        <label>Period:</label>
+        <select id="dash-preset" onchange="applyDashPreset()">
+          <option value="thisMonth">This Month</option>
+          <option value="lastMonth">Last Month</option>
+          <option value="thisYear">This Year</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <span id="dash-custom-dates" style="display:none; gap:8px; align-items:center; display:none;">
+          <input type="date" id="dash-from"> to <input type="date" id="dash-to">
+          <button class="btn-sm" onclick="renderDashboard()">Apply</button>
+        </span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card expenses">
+          <div class="stat-label">Total Expenses</div>
+          <div class="stat-value" id="dash-total-expenses">—</div>
+          <div class="stat-sub" id="dash-expense-count"></div>
+        </div>
+        <div class="stat-card hours">
+          <div class="stat-label">Admin Hours</div>
+          <div class="stat-value" id="dash-total-hours">—</div>
+          <div class="stat-sub" id="dash-hours-count"></div>
+        </div>
+      </div>
+      <div class="recent-label">Recent Entries</div>
+      <div id="dash-recent"><div class="spinner"><div class="spin"></div> Loading…</div></div>
+    </div>
+
+    <!-- Add Expense -->
+    <div id="view-expenses" class="view">
+      <div class="card">
+        <h2 id="expense-form-title">New Expense</h2>
+        <input type="hidden" id="expense-edit-id">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="exp-date">
+          </div>
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="exp-amount" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="exp-category">
+              <option value="water">Water</option>
+              <option value="supplies">Supplies</option>
+              <option value="personal_care">Personal Care</option>
+              <option value="drinks">Drinks</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Description</label>
+            <input type="text" id="exp-description" placeholder="What did you pay for?">
+          </div>
+          <div class="form-group full">
+            <label>Notes (optional)</label>
+            <textarea id="exp-notes" placeholder="Any additional context…"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="save-expense-btn" onclick="saveExpense()">Save Expense</button>
+          <button class="btn btn-secondary" onclick="clearExpenseForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Hours -->
+    <div id="view-hours" class="view">
+      <div class="card">
+        <h2 id="hours-form-title">New Admin Hours Entry</h2>
+        <input type="hidden" id="hours-edit-id">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="hrs-date">
+          </div>
+          <div class="form-group">
+            <label>Hours</label>
+            <input type="number" id="hrs-hours" step="0.25" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group full">
+            <label>Description</label>
+            <input type="text" id="hrs-description" placeholder="What admin work did you do?">
+          </div>
+          <div class="form-group full">
+            <label>Notes (optional)</label>
+            <textarea id="hrs-notes" placeholder="Any additional context…"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="save-hours-btn" onclick="saveHours()">Save Hours</button>
+          <button class="btn btn-secondary" onclick="clearHoursForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Entries -->
+    <div id="view-entries" class="view">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Type</label>
+          <select id="filter-type" onchange="renderEntries()">
+            <option value="all">All</option>
+            <option value="expense">Expenses</option>
+            <option value="hours">Admin Hours</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>From</label>
+          <input type="date" id="filter-from" onchange="renderEntries()">
+        </div>
+        <div class="filter-group">
+          <label>To</label>
+          <input type="date" id="filter-to" onchange="renderEntries()">
+        </div>
+        <div class="filter-group">
+          <label>&nbsp;</label>
+          <button class="btn-sm" onclick="clearFilters()">Clear</button>
+        </div>
+      </div>
+      <div id="entries-list" class="entries-list"><div class="spinner"><div class="spin"></div> Loading…</div></div>
+      <div id="entries-totals"></div>
+    </div>
+
+    <!-- Export -->
+    <div id="view-export" class="view">
+      <div class="card">
+        <h2>Export Report</h2>
+        <div class="filters">
+          <div class="filter-group">
+            <label>Period</label>
+            <select id="export-preset" onchange="applyExportPreset()">
+              <option value="thisMonth">This Month</option>
+              <option value="lastMonth">Last Month</option>
+              <option value="thisYear">This Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>From</label>
+            <input type="date" id="export-from">
+          </div>
+          <div class="filter-group">
+            <label>To</label>
+            <input type="date" id="export-to">
+          </div>
+        </div>
+        <div class="export-options">
+          <button class="btn btn-primary" onclick="exportCSV()">↓ Export CSV</button>
+          <button class="btn btn-green" onclick="generatePreview()">Preview Report</button>
+          <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
+        </div>
+      </div>
+      <div id="export-preview" style="display:none;"></div>
+    </div>
+  </main>
+
+  <!-- Bottom nav (mobile) -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="tab-btn active" onclick="showView('dashboard')">
+        <span class="tab-icon">📊</span><span class="tab-label">Dashboard</span>
+      </button>
+      <button class="tab-btn" onclick="showView('expenses')">
+        <span class="tab-icon">💸</span><span class="tab-label">Expense</span>
+      </button>
+      <button class="tab-btn" onclick="showView('hours')">
+        <span class="tab-icon">⏱</span><span class="tab-label">Hours</span>
+      </button>
+      <button class="tab-btn" onclick="showView('entries')">
+        <span class="tab-icon">📋</span><span class="tab-label">Entries</span>
+      </button>
+      <button class="tab-btn" onclick="showView('export')">
+        <span class="tab-icon">📤</span><span class="tab-label">Export</span>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <h2 id="modal-title">Edit Entry</h2>
+    <div id="modal-body"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="save-edit-btn" onclick="saveEdit()">Save Changes</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Supabase setup ────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdGJ6Z2RiamxpdGF5aHl4cXFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0ODE2MzUsImV4cCI6MjA4NTA1NzYzNX0.9ecIlYBxraKpQzuoWRl7gt-DUuTkvD7RTljJqD6wypE';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let otpEmail = '';
+
+// ── Auth ──────────────────────────────────────────────────────────
+async function sendOTP() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email || !email.includes('@')) { showLoginError('Please enter a valid email address.'); return; }
+  clearLoginError();
+  const btn = document.querySelector('#step-email .login-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  btn.disabled = false; btn.textContent = 'Send Login Code';
+
+  if (error) { showLoginError(error.message); return; }
+
+  otpEmail = email;
+  document.getElementById('step-email').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  document.getElementById('login-subtitle').textContent = `Code sent to ${email}`;
+  document.getElementById('login-otp').focus();
+}
+
+async function verifyOTP() {
+  const token = document.getElementById('login-otp').value.trim();
+  if (token.length !== 6) { showLoginError('Please enter the 6-digit code.'); return; }
+  clearLoginError();
+  const btn = document.querySelector('#step-otp .login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
+  const { error } = await db.auth.verifyOtp({ email: otpEmail, token, type: 'email' });
+  btn.disabled = false; btn.textContent = 'Sign In';
+
+  if (error) { showLoginError('Invalid or expired code. Please try again.'); return; }
+}
+
+function backToEmail() {
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-email').style.display = 'block';
+  document.getElementById('login-subtitle').textContent = 'Sign in to access your expenses and hours';
+  document.getElementById('login-otp').value = '';
+  clearLoginError();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearLoginError() {
+  document.getElementById('login-error').style.display = 'none';
+}
+
+async function signOut() {
+  await db.auth.signOut();
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  backToEmail();
+}
+
+// Listen for auth state changes
+db.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+// OTP input: auto-verify when 6 digits entered
+document.getElementById('login-otp').addEventListener('input', function() {
+  if (this.value.length === 6) verifyOTP();
+});
+
+// Allow Enter key on email field
+document.getElementById('login-email').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') sendOTP();
+});
+
+// ── App init ──────────────────────────────────────────────────────
+function initApp() {
+  document.getElementById('exp-date').value = today();
+  document.getElementById('hrs-date').value = today();
+  applyDashPreset();
+}
+
+// ── Navigation ────────────────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  const idx = ['dashboard','expenses','hours','entries','export'].indexOf(id);
+  document.querySelectorAll('header nav button').forEach((b,i) => b.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
+  window.scrollTo(0, 0);
+
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'entries') renderEntries();
+  if (id === 'export') { applyExportPreset(); generatePreview(); }
+}
+
+// ── DB helpers ────────────────────────────────────────────────────
+async function fetchEntries({ type, from, to } = {}) {
+  let q = db.from('entries').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
+  if (type && type !== 'all') q = q.eq('type', type);
+  if (from) q = q.gte('date', from);
+  if (to) q = q.lte('date', to);
+  const { data, error } = await q;
+  if (error) { toast('Error loading data.'); console.error(error); return []; }
+  return data;
+}
+
+// ── Date helpers ──────────────────────────────────────────────────
+function today() { return new Date().toISOString().slice(0,10); }
+
+function formatDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${m}/${day}/${y}`;
+}
+
+function periodRange(preset) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  if (preset === 'thisMonth') return { from: new Date(y,m,1).toISOString().slice(0,10), to: new Date(y,m+1,0).toISOString().slice(0,10) };
+  if (preset === 'lastMonth') return { from: new Date(y,m-1,1).toISOString().slice(0,10), to: new Date(y,m,0).toISOString().slice(0,10) };
+  if (preset === 'thisYear') return { from: `${y}-01-01`, to: `${y}-12-31` };
+  return {};
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────
+function applyDashPreset() {
+  const preset = document.getElementById('dash-preset').value;
+  const custom = document.getElementById('dash-custom-dates');
+  custom.style.display = preset === 'custom' ? 'flex' : 'none';
+  if (preset !== 'custom') renderDashboard();
+}
+
+function getDashRange() {
+  const preset = document.getElementById('dash-preset').value;
+  if (preset === 'custom') return { from: document.getElementById('dash-from').value, to: document.getElementById('dash-to').value };
+  return periodRange(preset);
+}
+
+async function renderDashboard() {
+  const { from, to } = getDashRange();
+  document.getElementById('dash-recent').innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+
+  const entries = await fetchEntries({ from, to });
+  const expenses = entries.filter(e => e.type === 'expense');
+  const hours = entries.filter(e => e.type === 'hours');
+
+  document.getElementById('dash-total-expenses').textContent = fmt$(expenses.reduce((s,e) => s + Number(e.amount), 0));
+  document.getElementById('dash-expense-count').textContent = `${expenses.length} entr${expenses.length === 1 ? 'y' : 'ies'}`;
+  document.getElementById('dash-total-hours').textContent = fmtHrs(hours.reduce((s,e) => s + Number(e.hours), 0));
+  document.getElementById('dash-hours-count').textContent = `${hours.length} entr${hours.length === 1 ? 'y' : 'ies'}`;
+
+  const recent = entries.slice(0, 5);
+  document.getElementById('dash-recent').innerHTML = recent.length
+    ? renderEntryRows(recent, false)
+    : `<div class="empty-state"><div class="icon">📋</div><p>No entries for this period.</p></div>`;
+}
+
+// ── Formatting ────────────────────────────────────────────────────
+function fmt$(n) { return '$' + Number(n).toFixed(2); }
+function fmtHrs(n) { return Number(n).toFixed(2).replace(/\.00$/,'') + 'h'; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+const CAT_LABELS = { water:'Water', supplies:'Supplies', personal_care:'Personal Care', drinks:'Drinks', other:'Other' };
+
+// ── Render rows ───────────────────────────────────────────────────
+function renderEntryRows(entries, showActions = true) {
+  if (!entries.length) return `<div class="empty-state"><div class="icon">📋</div><p>No entries found.</p></div>`;
+  return entries.map(e => {
+    const isExp = e.type === 'expense';
+    const actions = showActions ? `
+      <div class="entry-actions">
+        <button class="icon-btn" onclick="editEntry('${e.id}')" title="Edit">✏️</button>
+        <button class="icon-btn delete" onclick="deleteEntry('${e.id}')" title="Delete">🗑</button>
+      </div>` : '';
+    return `
+      <div class="entry-row">
+        <div class="entry-date">${formatDate(e.date)}</div>
+        <div class="entry-main">
+          <div class="entry-desc">${esc(e.description)}</div>
+          <div class="entry-meta">
+            <span class="badge ${isExp ? 'badge-expense' : 'badge-hours'}">${isExp ? 'Expense' : 'Admin Hours'}</span>
+            ${isExp && e.category ? `<span class="badge badge-category">${CAT_LABELS[e.category]||e.category}</span>` : ''}
+          </div>
+          ${e.notes ? `<div class="entry-notes">${esc(e.notes)}</div>` : ''}
+        </div>
+        <div class="entry-amount ${isExp ? 'amount-expense' : 'amount-hours'}">${isExp ? fmt$(e.amount) : fmtHrs(e.hours)}</div>
+        ${actions}
+      </div>`;
+  }).join('');
+}
+
+// ── All Entries ───────────────────────────────────────────────────
+async function renderEntries() {
+  document.getElementById('entries-list').innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  document.getElementById('entries-totals').innerHTML = '';
+
+  const type = document.getElementById('filter-type').value;
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+
+  const entries = await fetchEntries({ type, from, to });
+  document.getElementById('entries-list').innerHTML = renderEntryRows(entries);
+
+  const expenses = entries.filter(e => e.type === 'expense');
+  const hours = entries.filter(e => e.type === 'hours');
+  const totalExp = expenses.reduce((s,e) => s + Number(e.amount), 0);
+  const totalHrs = hours.reduce((s,e) => s + Number(e.hours), 0);
+
+  document.getElementById('entries-totals').innerHTML = entries.length ? `
+    <div class="totals-row">
+      <div class="total-item"><div class="total-label">Total Expenses</div><div class="total-value expense">${fmt$(totalExp)}</div></div>
+      <div class="total-item"><div class="total-label">Total Admin Hours</div><div class="total-value hours">${fmtHrs(totalHrs)}</div></div>
+      <div class="total-item"><div class="total-label">Entries</div><div class="total-value">${entries.length}</div></div>
+    </div>` : '';
+}
+
+function clearFilters() {
+  document.getElementById('filter-type').value = 'all';
+  document.getElementById('filter-from').value = '';
+  document.getElementById('filter-to').value = '';
+  renderEntries();
+}
+
+// ── Save Expense ──────────────────────────────────────────────────
+async function saveExpense() {
+  const date = document.getElementById('exp-date').value;
+  const amount = document.getElementById('exp-amount').value;
+  const description = document.getElementById('exp-description').value.trim();
+  const category = document.getElementById('exp-category').value;
+  const notes = document.getElementById('exp-notes').value.trim();
+  const editId = document.getElementById('expense-edit-id').value;
+
+  if (!date) { toast('Please enter a date.'); return; }
+  if (!description) { toast('Please enter a description.'); return; }
+  if (!amount || isNaN(amount) || Number(amount) < 0) { toast('Please enter a valid amount.'); return; }
+
+  const btn = document.getElementById('save-expense-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  let error;
+  if (editId) {
+    ({ error } = await db.from('entries').update({ date, amount: Number(amount), description, category, notes }).eq('id', editId));
+  } else {
+    ({ error } = await db.from('entries').insert({ user_id: currentUser.id, type: 'expense', date, amount: Number(amount), description, category, notes }));
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Expense';
+
+  if (error) { toast('Error saving — please try again.'); console.error(error); return; }
+  clearExpenseForm();
+  toast(editId ? 'Expense updated.' : 'Expense saved.');
+}
+
+function clearExpenseForm() {
+  document.getElementById('expense-edit-id').value = '';
+  document.getElementById('expense-form-title').textContent = 'New Expense';
+  document.getElementById('exp-date').value = today();
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-description').value = '';
+  document.getElementById('exp-category').value = 'water';
+  document.getElementById('exp-notes').value = '';
+}
+
+// ── Save Hours ────────────────────────────────────────────────────
+async function saveHours() {
+  const date = document.getElementById('hrs-date').value;
+  const hours = document.getElementById('hrs-hours').value;
+  const description = document.getElementById('hrs-description').value.trim();
+  const notes = document.getElementById('hrs-notes').value.trim();
+  const editId = document.getElementById('hours-edit-id').value;
+
+  if (!date) { toast('Please enter a date.'); return; }
+  if (!description) { toast('Please enter a description.'); return; }
+  if (!hours || isNaN(hours) || Number(hours) < 0) { toast('Please enter valid hours.'); return; }
+
+  const btn = document.getElementById('save-hours-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  let error;
+  if (editId) {
+    ({ error } = await db.from('entries').update({ date, hours: Number(hours), description, notes }).eq('id', editId));
+  } else {
+    ({ error } = await db.from('entries').insert({ user_id: currentUser.id, type: 'hours', date, hours: Number(hours), description, notes }));
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Hours';
+
+  if (error) { toast('Error saving — please try again.'); console.error(error); return; }
+  clearHoursForm();
+  toast(editId ? 'Hours entry updated.' : 'Hours entry saved.');
+}
+
+function clearHoursForm() {
+  document.getElementById('hours-edit-id').value = '';
+  document.getElementById('hours-form-title').textContent = 'New Admin Hours Entry';
+  document.getElementById('hrs-date').value = today();
+  document.getElementById('hrs-hours').value = '';
+  document.getElementById('hrs-description').value = '';
+  document.getElementById('hrs-notes').value = '';
+}
+
+// ── Edit / Delete ─────────────────────────────────────────────────
+let editingId = null;
+let editingEntry = null;
+
+async function editEntry(id) {
+  const { data, error } = await db.from('entries').select('*').eq('id', id).single();
+  if (error || !data) { toast('Could not load entry.'); return; }
+  editingId = id;
+  editingEntry = data;
+
+  document.getElementById('modal-title').textContent = data.type === 'expense' ? 'Edit Expense' : 'Edit Admin Hours';
+
+  if (data.type === 'expense') {
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-grid">
+        <div class="form-group"><label>Date</label><input type="date" id="me-date" value="${data.date}"></div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="me-amount" step="0.01" value="${data.amount}"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="me-category">
+            ${['water','supplies','personal_care','drinks','other'].map(c =>
+              `<option value="${c}" ${data.category===c?'selected':''}>${CAT_LABELS[c]}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="form-group full"><label>Description</label><input type="text" id="me-description" value="${esc(data.description)}"></div>
+        <div class="form-group full"><label>Notes</label><textarea id="me-notes">${esc(data.notes||'')}</textarea></div>
+      </div>`;
+  } else {
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-grid">
+        <div class="form-group"><label>Date</label><input type="date" id="me-date" value="${data.date}"></div>
+        <div class="form-group"><label>Hours</label><input type="number" id="me-hours" step="0.25" value="${data.hours}"></div>
+        <div class="form-group full"><label>Description</label><input type="text" id="me-description" value="${esc(data.description)}"></div>
+        <div class="form-group full"><label>Notes</label><textarea id="me-notes">${esc(data.notes||'')}</textarea></div>
+      </div>`;
+  }
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function saveEdit() {
+  const btn = document.getElementById('save-edit-btn');
+  const updates = {
+    date: document.getElementById('me-date').value,
+    description: document.getElementById('me-description').value.trim(),
+    notes: document.getElementById('me-notes').value.trim(),
+  };
+
+  if (editingEntry.type === 'expense') {
+    updates.amount = Number(document.getElementById('me-amount').value);
+    updates.category = document.getElementById('me-category').value;
+    if (!updates.date || !updates.description || isNaN(updates.amount)) { toast('Please fill in all required fields.'); return; }
+  } else {
+    updates.hours = Number(document.getElementById('me-hours').value);
+    if (!updates.date || !updates.description || isNaN(updates.hours)) { toast('Please fill in all required fields.'); return; }
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await db.from('entries').update(updates).eq('id', editingId);
+  btn.disabled = false; btn.textContent = 'Save Changes';
+
+  if (error) { toast('Error saving.'); return; }
+  closeModal();
+  renderEntries();
+  toast('Entry updated.');
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null;
+  editingEntry = null;
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  const { error } = await db.from('entries').delete().eq('id', id);
+  if (error) { toast('Error deleting entry.'); return; }
+  renderEntries();
+  toast('Entry deleted.');
+}
+
+// ── Export ────────────────────────────────────────────────────────
+function getExportRange() {
+  const preset = document.getElementById('export-preset').value;
+  if (preset === 'custom') return { from: document.getElementById('export-from').value, to: document.getElementById('export-to').value };
+  return periodRange(preset);
+}
+
+function applyExportPreset() {
+  const preset = document.getElementById('export-preset').value;
+  const { from, to } = preset !== 'custom' ? periodRange(preset) : { from:'', to:'' };
+  if (from) document.getElementById('export-from').value = from;
+  if (to) document.getElementById('export-to').value = to;
+  if (preset !== 'custom') generatePreview();
+}
+
+async function generatePreview() {
+  const { from, to } = getExportRange();
+  document.getElementById('export-preview').style.display = 'block';
+  document.getElementById('export-preview').innerHTML = '<div class="spinner"><div class="spin"></div> Building report…</div>';
+
+  const entries = await fetchEntries({ from, to });
+  const sorted = [...entries].sort((a,b) => a.date.localeCompare(b.date));
+  const expenses = sorted.filter(e => e.type === 'expense');
+  const hours = sorted.filter(e => e.type === 'hours');
+  const totalExp = expenses.reduce((s,e) => s + Number(e.amount), 0);
+  const totalHrs = hours.reduce((s,e) => s + Number(e.hours), 0);
+  const periodLabel = from && to ? `${formatDate(from)} – ${formatDate(to)}` : 'All entries';
+
+  const expRows = expenses.length
+    ? expenses.map(e => `<tr><td>${formatDate(e.date)}</td><td>${esc(e.description)}</td><td>${CAT_LABELS[e.category]||''}</td><td style="text-align:right;font-weight:600;">${fmt$(e.amount)}</td><td style="color:var(--text-muted);font-size:12px;">${esc(e.notes||'')}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--text-muted);padding:12px;">No expenses for this period.</td></tr>';
+
+  const hrsRows = hours.length
+    ? hours.map(e => `<tr><td>${formatDate(e.date)}</td><td>${esc(e.description)}</td><td style="text-align:right;font-weight:600;">${fmtHrs(e.hours)}</td><td style="color:var(--text-muted);font-size:12px;">${esc(e.notes||'')}</td></tr>`).join('')
+    : '<tr><td colspan="4" style="color:var(--text-muted);padding:12px;">No admin hours for this period.</td></tr>';
+
+  document.getElementById('export-preview').innerHTML = `
+    <div class="print-preview">
+      <h1>Studio Expense & Hours Report</h1>
+      <div class="period">Period: ${periodLabel} · Generated ${formatDate(today())}</div>
+      <div class="print-section">
+        <h3>Expenses</h3>
+        <table class="print-table">
+          <thead><tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right;">Amount</th><th>Notes</th></tr></thead>
+          <tbody>${expRows}</tbody>
+        </table>
+      </div>
+      <div class="print-section">
+        <h3>Admin Hours</h3>
+        <table class="print-table">
+          <thead><tr><th>Date</th><th>Description</th><th style="text-align:right;">Hours</th><th>Notes</th></tr></thead>
+          <tbody>${hrsRows}</tbody>
+        </table>
+      </div>
+      <div class="print-totals">
+        <div class="print-total-item"><div class="print-total-label">Total Expenses</div><div class="print-total-value" style="color:var(--accent);">${fmt$(totalExp)}</div></div>
+        <div class="print-total-item"><div class="print-total-label">Total Admin Hours</div><div class="print-total-value" style="color:var(--green);">${fmtHrs(totalHrs)}</div></div>
+        <div class="print-total-item"><div class="print-total-label">Expense Entries</div><div class="print-total-value">${expenses.length}</div></div>
+        <div class="print-total-item"><div class="print-total-label">Hours Entries</div><div class="print-total-value">${hours.length}</div></div>
+      </div>
+    </div>`;
+}
+
+async function exportCSV() {
+  const { from, to } = getExportRange();
+  const entries = await fetchEntries({ from, to });
+  const sorted = [...entries].sort((a,b) => a.date.localeCompare(b.date));
+
+  const rows = [['Type','Date','Description','Amount','Hours','Category','Notes']];
+  sorted.forEach(e => {
+    rows.push([
+      e.type === 'expense' ? 'Expense' : 'Admin Hours',
+      e.date, e.description,
+      e.type === 'expense' ? e.amount : '',
+      e.type === 'hours' ? e.hours : '',
+      e.type === 'expense' ? (CAT_LABELS[e.category]||e.category) : '',
+      e.notes || ''
+    ]);
+  });
+
+  const expenses = sorted.filter(e => e.type === 'expense');
+  const hours = sorted.filter(e => e.type === 'hours');
+  rows.push([],[' TOTALS']);
+  rows.push(['Total Expenses','','', expenses.reduce((s,e)=>s+Number(e.amount),0).toFixed(2),'','','']);
+  rows.push(['Total Admin Hours','','','', hours.reduce((s,e)=>s+Number(e.hours),0).toFixed(2),'','']);
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], { type:'text/csv' })),
+    download: `studio-report-${from||'all'}-${to||'all'}.csv`
+  });
+  a.click();
+  toast('CSV downloaded.');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Service worker ────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
