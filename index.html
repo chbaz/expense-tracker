@@ -1636,6 +1636,10 @@ function renderSubRequests() {
           <p class="sub-section-label" style="margin-top:1.25rem;">Instructors</p>
           <div id="inst-list-${req.id}"></div>
           <div id="texts-${req.id}"></div>
+          <div class="form-group" style="margin-top:1.25rem;">
+            <label>Notes</label>
+            <textarea rows="3" placeholder="Any notes for this request…" oninput="updateReqField('${req.id}','notes',this.value)" style="resize:vertical;">${req.notes||''}</textarea>
+          </div>
           <div style="margin-top:1rem;text-align:right;">
             <button class="btn btn-secondary btn-sm" style="color:var(--red);border-color:var(--red);" onclick="deleteSubRequest('${req.id}')">Delete Request</button>
           </div>
