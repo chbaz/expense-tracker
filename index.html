@@ -1453,7 +1453,11 @@ function toggleRequest(id) {
 
 function updateReqField(id, field, value) {
   const req = subRequests.find(r => r.id === id);
-  if (req) { req[field] = value; saveSubRequests(); renderRequestTexts(id); }
+  if (!req) return;
+  req[field] = value;
+  saveSubRequests();
+  if (field === 'classType') renderRequestInstructors(id);
+  renderRequestTexts(id);
 }
 
 function setStatus(reqId, instId, status) {
