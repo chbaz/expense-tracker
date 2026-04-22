@@ -796,38 +796,18 @@ textarea { resize: vertical; min-height: 72px; }
 
     <!-- Find Sub -->
     <div id="view-sub" class="view">
-      <div class="card">
-        <h2>Find a Sub</h2>
-        <p class="sub-section-label">Class Details</p>
-        <div class="sub-class-form">
-          <div class="form-group">
-            <label>Date</label>
-            <input type="date" id="sub-date">
-          </div>
-          <div class="form-group">
-            <label>Time</label>
-            <input type="time" id="sub-time">
-          </div>
-          <div class="form-group full">
-            <label>Location</label>
-            <input type="text" id="sub-location" placeholder="e.g. Main Studio, Room 2">
-          </div>
-        </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+        <h2 style="margin:0;">Sub Requests</h2>
+        <button class="btn btn-primary" onclick="newSubRequest()">+ New Request</button>
       </div>
-
+      <div id="sub-requests-list"></div>
       <div class="card">
-        <p class="sub-section-label">Instructors</p>
-        <div id="instructor-list"></div>
+        <p class="sub-section-label">Instructor List</p>
+        <div id="global-instructor-list"></div>
         <div class="add-instructor-row">
-          <input type="text" id="new-instructor-name" placeholder="Instructor name" maxlength="50">
+          <input type="text" id="new-instructor-name" placeholder="Add instructor name" maxlength="50">
           <button class="btn btn-primary" onclick="addInstructor()">Add</button>
         </div>
-      </div>
-
-      <div class="card" id="sub-texts-card" style="display:none;">
-        <p class="sub-section-label">Generated Texts</p>
-        <div id="sub-ask-section"></div>
-        <div id="sub-reminder-section" style="display:none; margin-top:1.25rem;"></div>
       </div>
     </div>
   </main>
@@ -986,7 +966,7 @@ function showView(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'entries') renderEntries();
   if (id === 'export') { applyExportPreset(); generatePreview(); }
-  if (id === 'sub') { renderInstructorList(); renderSubTexts(); }
+  if (id === 'sub') { renderSubView(); }
 }
 
 // ── DB helpers ────────────────────────────────────────────────────
@@ -1385,11 +1365,10 @@ function toast(msg) {
 
 // ── Sub Finder ────────────────────────────────────────────────────
 let instructors = JSON.parse(localStorage.getItem('sub_instructors') || '[]');
-let subStatuses = {}; // id -> 'asked' | 'no' | 'confirmed'
+let subRequests = JSON.parse(localStorage.getItem('sub_requests') || '[]');
 
-function saveInstructors() {
-  localStorage.setItem('sub_instructors', JSON.stringify(instructors));
-}
+function saveInstructors() { localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
+function saveSubRequests() { localStorage.setItem('sub_requests', JSON.stringify(subRequests)); }
 
 function addInstructor() {
   const input = document.getElementById('new-instructor-name');
@@ -1398,41 +1377,61 @@ function addInstructor() {
   instructors.push({ id: Date.now().toString(), name });
   saveInstructors();
   input.value = '';
-  renderInstructorList();
+  renderSubView();
 }
 
 function removeInstructor(id) {
   instructors = instructors.filter(i => i.id !== id);
-  delete subStatuses[id];
+  subRequests.forEach(r => { delete r.statuses[id]; });
   saveInstructors();
-  renderInstructorList();
-  renderSubTexts();
+  saveSubRequests();
+  renderSubView();
 }
 
-function setStatus(id, status) {
-  subStatuses[id] = subStatuses[id] === status ? null : status;
-  renderInstructorList();
-  renderSubTexts();
+function newSubRequest() {
+  const req = { id: Date.now().toString(), date: '', time: '', location: '', statuses: {}, open: true };
+  subRequests.unshift(req);
+  saveSubRequests();
+  renderSubView();
 }
 
-function getClassDetails() {
-  const date = document.getElementById('sub-date').value;
-  const time = document.getElementById('sub-time').value;
-  const location = document.getElementById('sub-location').value.trim();
-  const dateStr = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) : '[date]';
-  const timeStr = time ? new Date('1970-01-01T' + time).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : '[time]';
-  const locStr = location || '[location]';
-  return { dateStr, timeStr, locStr };
+function deleteSubRequest(id) {
+  subRequests = subRequests.filter(r => r.id !== id);
+  saveSubRequests();
+  renderSubView();
 }
 
-function askText(name) {
-  const { dateStr, timeStr, locStr } = getClassDetails();
-  return `Hi ${name}! I'm looking for a sub for my class at ${locStr} on ${dateStr} at ${timeStr}. Are you available? 🙏`;
+function toggleRequest(id) {
+  const req = subRequests.find(r => r.id === id);
+  if (req) { req.open = !req.open; saveSubRequests(); renderSubView(); }
 }
 
-function reminderText(name) {
-  const { dateStr, timeStr, locStr } = getClassDetails();
-  return `Hi ${name}! Just a reminder that you're subbing my class at ${locStr} on ${dateStr} at ${timeStr}. Thank you so much! 🙏`;
+function updateReqField(id, field, value) {
+  const req = subRequests.find(r => r.id === id);
+  if (req) { req[field] = value; saveSubRequests(); renderRequestTexts(id); }
+}
+
+function setStatus(reqId, instId, status) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  req.statuses[instId] = req.statuses[instId] === status ? null : status;
+  saveSubRequests();
+  renderRequestInstructors(reqId);
+  renderRequestTexts(reqId);
+}
+
+function fmtDate(d) {
+  return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '[date]';
+}
+function fmtTime(t) {
+  return t ? new Date('1970-01-01T' + t).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : '[time]';
+}
+
+function buildAskText(name, req) {
+  return `Hi ${name}! I'm looking for a sub for my class at ${req.location||'[location]'} on ${fmtDate(req.date)} at ${fmtTime(req.time)}. Are you available? 🙏`;
+}
+function buildReminderText(name, req) {
+  return `Hi ${name}! Just a reminder that you're subbing my class at ${req.location||'[location]'} on ${fmtDate(req.date)} at ${fmtTime(req.time)}. Thank you so much! 🙏`;
 }
 
 function copyText(text, badgeId) {
@@ -1442,76 +1441,144 @@ function copyText(text, badgeId) {
   });
 }
 
-function renderInstructorList() {
-  const el = document.getElementById('instructor-list');
+function renderRequestInstructors(reqId) {
+  const el = document.getElementById('inst-list-' + reqId);
+  if (!el) return;
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
   if (!instructors.length) {
-    el.innerHTML = '<p class="no-instructors">No instructors yet — add one below.</p>';
+    el.innerHTML = '<p class="no-instructors">Add instructors in the list below.</p>';
     return;
   }
   el.innerHTML = instructors.map(inst => {
-    const s = subStatuses[inst.id];
+    const s = req.statuses[inst.id];
     return `
-      <div class="instructor-row ${s === 'no' ? 'is-no' : ''} ${s === 'maybe' ? 'is-maybe' : ''} ${s === 'confirmed' ? 'is-confirmed' : ''}">
+      <div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}">
         <span class="instructor-name">${inst.name}</span>
         <div class="status-btns">
-          <button class="status-btn ${s === 'asked' ? 'active-asked' : ''}" onclick="setStatus('${inst.id}','asked')">Asked</button>
-          <button class="status-btn ${s === 'maybe' ? 'active-maybe' : ''}" onclick="setStatus('${inst.id}','maybe')">Maybe</button>
-          <button class="status-btn ${s === 'no' ? 'active-no' : ''}" onclick="setStatus('${inst.id}','no')">No</button>
-          <button class="status-btn ${s === 'confirmed' ? 'active-confirmed' : ''}" onclick="setStatus('${inst.id}','confirmed')">✓ Yes</button>
-          <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">✕</button>
+          <button class="status-btn ${s==='asked'?'active-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Asked</button>
+          <button class="status-btn ${s==='maybe'?'active-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
+          <button class="status-btn ${s==='no'?'active-no':''}" onclick="setStatus('${reqId}','${inst.id}','no')">No</button>
+          <button class="status-btn ${s==='confirmed'?'active-confirmed':''}" onclick="setStatus('${reqId}','${inst.id}','confirmed')">✓ Yes</button>
         </div>
       </div>`;
   }).join('');
 }
 
-function renderSubTexts() {
-  const card = document.getElementById('sub-texts-card');
-  const askSection = document.getElementById('sub-ask-section');
-  const reminderSection = document.getElementById('sub-reminder-section');
+function renderRequestTexts(reqId) {
+  const el = document.getElementById('texts-' + reqId);
+  if (!el) return;
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  const asked = instructors.filter(i => req.statuses[i.id] === 'asked' || req.statuses[i.id] === 'maybe');
+  const confirmed = instructors.find(i => req.statuses[i.id] === 'confirmed');
+  if (!asked.length && !confirmed) { el.innerHTML = ''; return; }
 
-  const asked = instructors.filter(i => subStatuses[i.id] === 'asked');
-  const confirmed = instructors.find(i => subStatuses[i.id] === 'confirmed');
-
-  if (!asked.length && !confirmed) { card.style.display = 'none'; return; }
-  card.style.display = 'block';
-
+  let html = '';
   if (asked.length) {
-    askSection.innerHTML = `<p class="sub-section-label">Ask texts</p>` +
-      asked.map(inst => {
-        const bid = 'copy-ask-' + inst.id;
-        const txt = askText(inst.name);
-        return `
-          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.25rem;">${inst.name}</p>
-          <div class="text-preview">${txt}</div>
-          <div class="copy-row">
-            <button class="btn btn-primary btn-sm" onclick="copyText(\`${txt.replace(/`/g,'\\`')}\`,'${bid}')">Copy</button>
-            <span class="copied-badge" id="${bid}">Copied!</span>
-          </div>`;
-      }).join('<div style="margin-top:1rem"></div>');
-  } else {
-    askSection.innerHTML = '';
+    html += `<p class="sub-section-label" style="margin-top:1.25rem;">Ask texts</p>`;
+    html += asked.map(inst => {
+      const bid = `ask-${reqId}-${inst.id}`;
+      const txt = buildAskText(inst.name, req);
+      const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+      return `<p style="font-size:0.85rem;color:var(--text-muted);margin:.5rem 0 .2rem">${inst.name}</p>
+        <div class="text-preview">${txt}</div>
+        <div class="copy-row">
+          <button class="btn btn-primary btn-sm" onclick="copyText(\`${escaped}\`,'${bid}')">Copy</button>
+          <span class="copied-badge" id="${bid}">Copied!</span>
+        </div>`;
+    }).join('<div style="margin-top:.75rem"></div>');
   }
-
   if (confirmed) {
-    const bid = 'copy-reminder';
-    const txt = reminderText(confirmed.name);
-    reminderSection.style.display = 'block';
-    reminderSection.innerHTML = `
-      <p class="sub-section-label">Reminder text for ${confirmed.name}</p>
+    const bid = `rem-${reqId}`;
+    const txt = buildReminderText(confirmed.name, req);
+    const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+    html += `<p class="sub-section-label" style="margin-top:1.25rem;">Reminder for ${confirmed.name}</p>
       <div class="text-preview">${txt}</div>
       <div class="copy-row">
-        <button class="btn btn-green btn-sm" onclick="copyText(\`${txt.replace(/`/g,'\\`')}\`,'${bid}')">Copy Reminder</button>
+        <button class="btn btn-green btn-sm" onclick="copyText(\`${escaped}\`,'${bid}')">Copy Reminder</button>
         <span class="copied-badge" id="${bid}">Copied!</span>
       </div>`;
-  } else {
-    reminderSection.style.display = 'none';
   }
+  el.innerHTML = html;
 }
 
-// Re-render texts when class details change
-['sub-date','sub-time','sub-location'].forEach(id => {
-  document.getElementById(id).addEventListener('input', renderSubTexts);
-});
+function renderSubRequests() {
+  const el = document.getElementById('sub-requests-list');
+  if (!subRequests.length) {
+    el.innerHTML = '<div class="card" style="color:var(--text-muted);text-align:center;padding:2rem;">No open requests. Tap + New Request to start.</div>';
+    return;
+  }
+  el.innerHTML = subRequests.map(req => {
+    const confirmed = instructors.find(i => req.statuses[i.id] === 'confirmed');
+    const askedCount = instructors.filter(i => ['asked','maybe'].includes(req.statuses[i.id])).length;
+    const noCount = instructors.filter(i => req.statuses[i.id] === 'no').length;
+    const label = [req.date ? fmtDate(req.date) : '', req.time ? fmtTime(req.time) : '', req.location].filter(Boolean).join(' · ') || 'New Request';
+    const summary = confirmed
+      ? `<span style="color:var(--green);font-weight:600;">✓ ${confirmed.name} confirmed</span>`
+      : [askedCount ? `${askedCount} asked` : '', noCount ? `${noCount} no` : ''].filter(Boolean).join(', ') || '';
+    return `
+      <div class="card" style="padding:0;">
+        <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+          <div>
+            <div style="font-weight:600;">${label}</div>
+            ${summary ? `<div style="font-size:0.82rem;margin-top:0.2rem;color:var(--text-muted);">${summary}</div>` : ''}
+          </div>
+          <span style="color:var(--text-muted);font-size:1.1rem;">${req.open ? '▲' : '▼'}</span>
+        </div>
+        ${req.open ? `
+        <div style="padding:0 1.25rem 1.25rem;border-top:1px solid var(--border);">
+          <div class="sub-class-form" style="margin-top:1rem;">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" value="${req.date}" onchange="updateReqField('${req.id}','date',this.value)">
+            </div>
+            <div class="form-group">
+              <label>Time</label>
+              <input type="time" value="${req.time}" onchange="updateReqField('${req.id}','time',this.value)">
+            </div>
+            <div class="form-group full">
+              <label>Location</label>
+              <input type="text" value="${req.location}" placeholder="e.g. Main Studio" oninput="updateReqField('${req.id}','location',this.value)">
+            </div>
+          </div>
+          <p class="sub-section-label" style="margin-top:1.25rem;">Instructors</p>
+          <div id="inst-list-${req.id}"></div>
+          <div id="texts-${req.id}"></div>
+          <div style="margin-top:1rem;text-align:right;">
+            <button class="btn btn-secondary btn-sm" style="color:var(--red);border-color:var(--red);" onclick="deleteSubRequest('${req.id}')">Delete Request</button>
+          </div>
+        </div>` : ''}
+      </div>`;
+  }).join('');
+
+  subRequests.forEach(req => {
+    if (req.open) {
+      renderRequestInstructors(req.id);
+      renderRequestTexts(req.id);
+    }
+  });
+}
+
+function renderGlobalInstructors() {
+  const el = document.getElementById('global-instructor-list');
+  if (!el) return;
+  if (!instructors.length) {
+    el.innerHTML = '<p class="no-instructors">No instructors yet — add one below.</p>';
+    return;
+  }
+  el.innerHTML = instructors.map(inst => `
+    <div class="instructor-row">
+      <span class="instructor-name">${inst.name}</span>
+      <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">Remove</button>
+    </div>`).join('');
+}
+
+function renderSubView() {
+  renderSubRequests();
+  renderGlobalInstructors();
+}
+
 document.getElementById('new-instructor-name').addEventListener('keydown', e => {
   if (e.key === 'Enter') addInstructor();
 });
