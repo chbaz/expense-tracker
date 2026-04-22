@@ -801,12 +801,17 @@ textarea { resize: vertical; min-height: 72px; }
         <button class="btn btn-primary" onclick="newSubRequest()">+ New Request</button>
       </div>
       <div id="sub-requests-list"></div>
-      <div class="card">
-        <p class="sub-section-label">Instructor List</p>
-        <div id="global-instructor-list"></div>
-        <div class="add-instructor-row">
-          <input type="text" id="new-instructor-name" placeholder="Add instructor name" maxlength="50">
-          <button class="btn btn-primary" onclick="addInstructor()">Add</button>
+      <div class="card" style="padding:0;">
+        <div onclick="toggleInstructorList()" style="cursor:pointer;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;">
+          <p class="sub-section-label" style="margin:0;">Instructor List</p>
+          <span id="inst-list-arrow" style="color:var(--text-muted);font-size:1.1rem;">▲</span>
+        </div>
+        <div id="inst-list-body" style="padding:0 1.25rem 1.25rem;">
+          <div id="global-instructor-list"></div>
+          <div class="add-instructor-row">
+            <input type="text" id="new-instructor-name" placeholder="Add instructor name" maxlength="50">
+            <button class="btn btn-primary" onclick="addInstructor()">Add</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1588,6 +1593,13 @@ function renderGlobalInstructors() {
 function renderSubView() {
   renderSubRequests();
   renderGlobalInstructors();
+}
+
+let instListOpen = true;
+function toggleInstructorList() {
+  instListOpen = !instListOpen;
+  document.getElementById('inst-list-body').style.display = instListOpen ? 'block' : 'none';
+  document.getElementById('inst-list-arrow').textContent = instListOpen ? '▲' : '▼';
 }
 
 document.getElementById('new-instructor-name').addEventListener('keydown', e => {
