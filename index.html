@@ -1442,7 +1442,7 @@ function buildAskText(name, req) {
   return `Hi ${firstName(name)}! Any interest in subbing on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}?`;
 }
 function buildReminderText(name, req) {
-  return `Hi ${firstName(name)}! Just a reminder that you're subbing on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}. Thank you so much!`;
+  return `Hey ${firstName(name)} - quick reminder that I have you subbing the ${fmtTime(req.time)} at ${req.location||'[location]'} on ${fmtDate(req.date)}. Thank you!`;
 }
 
 function copyText(text, badgeId) {
