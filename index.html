@@ -1410,7 +1410,11 @@ if (!instructors) { instructors = DEFAULT_INSTRUCTORS; localStorage.setItem('sub
 instructors.forEach(i => { if (!i.categories) i.categories = []; });
 
 let subRequests = JSON.parse(localStorage.getItem('sub_requests') || '[]');
-subRequests.forEach(r => { if (!r.classType) r.classType = ''; });
+subRequests.forEach(r => {
+  if (!r.classType) r.classType = '';
+  if (!r.originalInstructor) r.originalInstructor = '';
+  if (!r.crossedOut) r.crossedOut = [];
+});
 
 function saveInstructors() { localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
 function saveSubRequests() { localStorage.setItem('sub_requests', JSON.stringify(subRequests)); }
@@ -1434,7 +1438,7 @@ function removeInstructor(id) {
 }
 
 function newSubRequest() {
-  const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', statuses: {}, open: true };
+  const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', originalInstructor: '', crossedOut: [], statuses: {}, open: true };
   subRequests.unshift(req);
   saveSubRequests();
   renderSubView();
@@ -1458,6 +1462,27 @@ function updateReqField(id, field, value) {
   saveSubRequests();
   if (field === 'classType') renderRequestInstructors(id);
   renderRequestTexts(id);
+}
+
+function toggleCrossed(reqId, instId) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  const idx = req.crossedOut.indexOf(instId);
+  if (idx === -1) req.crossedOut.push(instId); else req.crossedOut.splice(idx, 1);
+  saveSubRequests();
+  renderRequestInstructors(reqId);
+}
+
+function setOriginalInstructor(reqId, instId) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  if (req.originalInstructor && req.originalInstructor !== instId) {
+    req.crossedOut = req.crossedOut.filter(id => id !== req.originalInstructor);
+  }
+  req.originalInstructor = instId;
+  if (instId && !req.crossedOut.includes(instId)) req.crossedOut.push(instId);
+  saveSubRequests();
+  renderRequestInstructors(reqId);
 }
 
 function setStatus(reqId, instId, status) {
@@ -1502,8 +1527,10 @@ function copyText(text, badgeId) {
 }
 
 function instRow(reqId, inst, s) {
-  return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}">
-    <span class="instructor-name">${inst.name}</span>
+  const req = subRequests.find(r => r.id === reqId);
+  const crossed = req && req.crossedOut.includes(inst.id);
+  return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}" ${crossed?'style="opacity:0.4;"':''}>
+    <span class="instructor-name" onclick="toggleCrossed('${reqId}','${inst.id}')" style="cursor:pointer;${crossed?'text-decoration:line-through;':''}">${inst.name}</span>
     <div class="status-btns">
       <button class="status-btn ${s==='asked'?'active-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Asked</button>
       <button class="status-btn ${s==='maybe'?'active-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
@@ -1631,6 +1658,13 @@ function renderSubRequests() {
             <div class="form-group">
               <label>Location</label>
               <input type="text" value="${req.location}" placeholder="e.g. Main Studio" oninput="updateReqField('${req.id}','location',this.value)">
+            </div>
+            <div class="form-group full">
+              <label>Original Instructor</label>
+              <select onchange="setOriginalInstructor('${req.id}',this.value)">
+                <option value="">— select —</option>
+                ${[...instructors].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}" ${req.originalInstructor===i.id?'selected':''}>${i.name}</option>`).join('')}
+              </select>
             </div>
           </div>
           <p class="sub-section-label" style="margin-top:1.25rem;">Instructors</p>
