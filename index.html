@@ -583,6 +583,29 @@ textarea { resize: vertical; min-height: 72px; }
 .add-instructor-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
 .add-instructor-row input { flex: 1; }
 .no-instructors { color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 1.5rem 0; }
+
+.cat-filter-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.cat-btn {
+  padding: 0.3rem 0.85rem; border-radius: 20px; border: 1.5px solid var(--border);
+  font-size: 0.78rem; cursor: pointer; background: var(--surface);
+  color: var(--text-muted); font-weight: 600; transition: all 0.15s;
+}
+.cat-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cat-tag {
+  display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px;
+  font-size: 0.7rem; font-weight: 700; margin-left: 0.3rem;
+  background: var(--accent-light); color: var(--accent);
+}
+.cat-tag.yin    { background: #e8f0fe; color: #2a5aaa; }
+.cat-tag.bikram { background: #fff3cd; color: #7a5c00; }
+.cat-tag.sumits { background: var(--green-light); color: var(--green); }
+.cat-tag.pilates { background: #f3e8ff; color: #6b3fa0; }
+.cat-group-header {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted);
+  padding: 0.75rem 0 0.25rem; border-top: 1px solid var(--border); margin-top: 0.25rem;
+}
+.cat-group-header:first-child { border-top: none; padding-top: 0; }
 </style>
 </head>
 <body>
@@ -1369,8 +1392,25 @@ function toast(msg) {
 }
 
 // ── Sub Finder ────────────────────────────────────────────────────
-let instructors = JSON.parse(localStorage.getItem('sub_instructors') || '[]');
+const CATEGORIES = ['PILATES', 'YIN', 'BIKRAM', 'SUMITS'];
+
+const DEFAULT_INSTRUCTORS = [
+  { id: 'di1', name: 'Carole',            categories: ['BIKRAM'] },
+  { id: 'di2', name: 'Cindy',             categories: ['BIKRAM', 'SUMITS'] },
+  { id: 'di3', name: 'Cintra',            categories: ['BIKRAM'] },
+  { id: 'di4', name: 'David',             categories: ['YIN', 'BIKRAM'] },
+  { id: 'di5', name: 'Genevieve',         categories: ['YIN'] },
+  { id: 'di6', name: 'Jennifer Tenaglia', categories: ['PILATES'] },
+  { id: 'di7', name: 'Kristin',           categories: ['PILATES', 'BIKRAM', 'SUMITS'] },
+];
+
+let instructors = JSON.parse(localStorage.getItem('sub_instructors') || 'null');
+if (!instructors) { instructors = DEFAULT_INSTRUCTORS; localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
+// backfill categories for instructors added before this feature
+instructors.forEach(i => { if (!i.categories) i.categories = []; });
+
 let subRequests = JSON.parse(localStorage.getItem('sub_requests') || '[]');
+subRequests.forEach(r => { if (!r.classType) r.classType = ''; });
 
 function saveInstructors() { localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
 function saveSubRequests() { localStorage.setItem('sub_requests', JSON.stringify(subRequests)); }
@@ -1379,7 +1419,7 @@ function addInstructor() {
   const input = document.getElementById('new-instructor-name');
   const name = input.value.trim();
   if (!name) return;
-  instructors.push({ id: Date.now().toString(), name });
+  instructors.push({ id: Date.now().toString(), name, categories: [] });
   saveInstructors();
   input.value = '';
   renderSubView();
@@ -1394,7 +1434,7 @@ function removeInstructor(id) {
 }
 
 function newSubRequest() {
-  const req = { id: Date.now().toString(), date: '', time: '', location: '', statuses: {}, open: true };
+  const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', statuses: {}, open: true };
   subRequests.unshift(req);
   saveSubRequests();
   renderSubView();
@@ -1457,6 +1497,18 @@ function copyText(text, badgeId) {
   });
 }
 
+function instRow(reqId, inst, s) {
+  return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}">
+    <span class="instructor-name">${inst.name}</span>
+    <div class="status-btns">
+      <button class="status-btn ${s==='asked'?'active-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Asked</button>
+      <button class="status-btn ${s==='maybe'?'active-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
+      <button class="status-btn ${s==='no'?'active-no':''}" onclick="setStatus('${reqId}','${inst.id}','no')">No</button>
+      <button class="status-btn ${s==='confirmed'?'active-confirmed':''}" onclick="setStatus('${reqId}','${inst.id}','confirmed')">✓ Yes</button>
+    </div>
+  </div>`;
+}
+
 function renderRequestInstructors(reqId) {
   const el = document.getElementById('inst-list-' + reqId);
   if (!el) return;
@@ -1466,19 +1518,31 @@ function renderRequestInstructors(reqId) {
     el.innerHTML = '<p class="no-instructors">Add instructors in the list below.</p>';
     return;
   }
-  el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => {
-    const s = req.statuses[inst.id];
-    return `
-      <div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}">
-        <span class="instructor-name">${inst.name}</span>
-        <div class="status-btns">
-          <button class="status-btn ${s==='asked'?'active-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Asked</button>
-          <button class="status-btn ${s==='maybe'?'active-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
-          <button class="status-btn ${s==='no'?'active-no':''}" onclick="setStatus('${reqId}','${inst.id}','no')">No</button>
-          <button class="status-btn ${s==='confirmed'?'active-confirmed':''}" onclick="setStatus('${reqId}','${inst.id}','confirmed')">✓ Yes</button>
-        </div>
-      </div>`;
-  }).join('');
+
+  const activeCat = req.classType || '';
+  const sorted = [...instructors].sort((a,b) => a.name.localeCompare(b.name));
+
+  let html = '';
+  if (activeCat) {
+    const list = sorted.filter(i => (i.categories||[]).includes(activeCat));
+    html = list.length
+      ? list.map(i => instRow(reqId, i, req.statuses[i.id])).join('')
+      : '<p class="no-instructors">No instructors in this category.</p>';
+  } else {
+    const used = new Set();
+    CATEGORIES.forEach(cat => {
+      const list = sorted.filter(i => (i.categories||[]).includes(cat));
+      if (!list.length) return;
+      html += `<div class="cat-group-header">${cat}</div>`;
+      html += list.map(i => { used.add(i.id); return instRow(reqId, i, req.statuses[i.id]); }).join('');
+    });
+    const uncategorized = sorted.filter(i => !used.has(i.id));
+    if (uncategorized.length) {
+      html += `<div class="cat-group-header">OTHER</div>`;
+      html += uncategorized.map(i => instRow(reqId, i, req.statuses[i.id])).join('');
+    }
+  }
+  el.innerHTML = html;
 }
 
 function renderRequestTexts(reqId) {
@@ -1553,7 +1617,14 @@ function renderSubRequests() {
               <label>Time</label>
               <input type="time" value="${req.time}" onchange="updateReqField('${req.id}','time',this.value)">
             </div>
-            <div class="form-group full">
+            <div class="form-group">
+              <label>Class Type</label>
+              <select onchange="updateReqField('${req.id}','classType',this.value)">
+                <option value="" ${!req.classType?'selected':''}>All</option>
+                ${CATEGORIES.map(c=>`<option value="${c}" ${req.classType===c?'selected':''}>${c}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
               <label>Location</label>
               <input type="text" value="${req.location}" placeholder="e.g. Main Studio" oninput="updateReqField('${req.id}','location',this.value)">
             </div>
@@ -1576,6 +1647,16 @@ function renderSubRequests() {
   });
 }
 
+function toggleCategory(instId, cat) {
+  const inst = instructors.find(i => i.id === instId);
+  if (!inst) return;
+  const idx = inst.categories.indexOf(cat);
+  if (idx === -1) inst.categories.push(cat); else inst.categories.splice(idx, 1);
+  saveInstructors();
+  renderGlobalInstructors();
+  subRequests.forEach(r => { if (r.open) renderRequestInstructors(r.id); });
+}
+
 function renderGlobalInstructors() {
   const el = document.getElementById('global-instructor-list');
   if (!el) return;
@@ -1583,11 +1664,21 @@ function renderGlobalInstructors() {
     el.innerHTML = '<p class="no-instructors">No instructors yet — add one below.</p>';
     return;
   }
-  el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => `
-    <div class="instructor-row">
-      <span class="instructor-name">${inst.name}</span>
-      <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">Remove</button>
-    </div>`).join('');
+  el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => {
+    const cats = inst.categories || [];
+    const catTags = CATEGORIES.map(c => {
+      const active = cats.includes(c);
+      const cls = c.toLowerCase();
+      return `<button class="cat-btn ${active ? 'active' : ''}" onclick="toggleCategory('${inst.id}','${c}')" style="${active ? `background:var(--accent);border-color:var(--accent);color:#fff` : ''}">${c}</button>`;
+    }).join('');
+    return `<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+        <span style="font-weight:500;">${inst.name}</span>
+        <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">Remove</button>
+      </div>
+      <div class="cat-filter-bar">${catTags}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderSubView() {
