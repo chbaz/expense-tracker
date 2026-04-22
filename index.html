@@ -1420,18 +1420,29 @@ function setStatus(reqId, instId, status) {
   renderRequestTexts(reqId);
 }
 
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 function fmtDate(d) {
-  return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '[date]';
+  if (!d) return '[date]';
+  const dt = new Date(d + 'T12:00:00');
+  const weekday = dt.toLocaleDateString('en-US', { weekday: 'long' });
+  const month = dt.toLocaleDateString('en-US', { month: 'long' });
+  return `${weekday}, ${month} ${ordinal(dt.getDate())}`;
 }
 function fmtTime(t) {
   return t ? new Date('1970-01-01T' + t).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : '[time]';
 }
+function firstName(name) {
+  return name.split(' ')[0];
+}
 
 function buildAskText(name, req) {
-  return `Hi ${name}! I'm looking for a sub for my class at ${req.location||'[location]'} on ${fmtDate(req.date)} at ${fmtTime(req.time)}. Are you available? 🙏`;
+  return `Hi ${firstName(name)}! Any interest in subbing on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}?`;
 }
 function buildReminderText(name, req) {
-  return `Hi ${name}! Just a reminder that you're subbing my class at ${req.location||'[location]'} on ${fmtDate(req.date)} at ${fmtTime(req.time)}. Thank you so much! 🙏`;
+  return `Hi ${firstName(name)}! Just a reminder that you're subbing on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}. Thank you so much!`;
 }
 
 function copyText(text, badgeId) {
