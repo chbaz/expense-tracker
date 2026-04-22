@@ -980,6 +980,7 @@ function initApp() {
   document.getElementById('exp-date').value = today();
   document.getElementById('hrs-date').value = today();
   applyDashPreset();
+  loadSubData();
 }
 
 // ── Navigation ────────────────────────────────────────────────────
@@ -1404,20 +1405,68 @@ const DEFAULT_INSTRUCTORS = [
   { id: 'di7', name: 'Kristin',           categories: ['PILATES', 'BIKRAM', 'SUMITS'] },
 ];
 
-let instructors = JSON.parse(localStorage.getItem('sub_instructors') || 'null');
-if (!instructors) { instructors = DEFAULT_INSTRUCTORS; localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
-// backfill categories for instructors added before this feature
-instructors.forEach(i => { if (!i.categories) i.categories = []; });
+let instructors = [];
+let subRequests = [];
 
-let subRequests = JSON.parse(localStorage.getItem('sub_requests') || '[]');
-subRequests.forEach(r => {
-  if (!r.classType) r.classType = '';
-  if (!r.originalInstructor) r.originalInstructor = '';
-  if (!r.crossedOut) r.crossedOut = [];
-});
+async function saveInstructors() {
+  if (!currentUser) return;
+  await db.from('sub_instructors').upsert(
+    instructors.map(i => ({ id: i.id, user_id: currentUser.id, name: i.name, categories: i.categories || [] })),
+    { onConflict: 'id' }
+  );
+}
 
-function saveInstructors() { localStorage.setItem('sub_instructors', JSON.stringify(instructors)); }
-function saveSubRequests() { localStorage.setItem('sub_requests', JSON.stringify(subRequests)); }
+async function saveSubRequests() {
+  if (!currentUser || !subRequests.length) return;
+  await db.from('sub_requests').upsert(
+    subRequests.map(r => ({
+      id: r.id, user_id: currentUser.id,
+      date: r.date, time: r.time, location: r.location,
+      class_type: r.classType, original_instructor: r.originalInstructor,
+      crossed_out: r.crossedOut, statuses: r.statuses,
+      notes: r.notes || '', open: r.open
+    })),
+    { onConflict: 'id' }
+  );
+}
+
+async function loadSubData() {
+  if (!currentUser) return;
+  const [{ data: dbInst }, { data: dbReqs }] = await Promise.all([
+    db.from('sub_instructors').select('*').eq('user_id', currentUser.id),
+    db.from('sub_requests').select('*').eq('user_id', currentUser.id)
+  ]);
+
+  if (dbInst && dbInst.length > 0) {
+    instructors = dbInst.map(r => ({ id: r.id, name: r.name, categories: r.categories || [] }));
+  } else {
+    const stored = JSON.parse(localStorage.getItem('sub_instructors') || 'null');
+    instructors = stored ? stored.map(i => ({ ...i, categories: i.categories || [] })) : DEFAULT_INSTRUCTORS.map(i => ({ ...i }));
+    saveInstructors();
+    localStorage.removeItem('sub_instructors');
+  }
+
+  if (dbReqs && dbReqs.length > 0) {
+    subRequests = dbReqs.map(r => ({
+      id: r.id, date: r.date || '', time: r.time || '',
+      location: r.location || '', classType: r.class_type || '',
+      originalInstructor: r.original_instructor || '',
+      crossedOut: r.crossed_out || [], statuses: r.statuses || {},
+      notes: r.notes || '', open: r.open !== false
+    }));
+  } else {
+    const stored = JSON.parse(localStorage.getItem('sub_requests') || '[]');
+    subRequests = stored.map(r => ({
+      ...r, classType: r.classType || '',
+      originalInstructor: r.originalInstructor || '',
+      crossedOut: r.crossedOut || []
+    }));
+    if (subRequests.length) saveSubRequests();
+    localStorage.removeItem('sub_requests');
+  }
+
+  renderSubView();
+}
 
 function addInstructor() {
   const input = document.getElementById('new-instructor-name');
@@ -1429,10 +1478,12 @@ function addInstructor() {
   renderSubView();
 }
 
-function removeInstructor(id) {
+async function removeInstructor(id) {
   instructors = instructors.filter(i => i.id !== id);
-  subRequests.forEach(r => { delete r.statuses[id]; });
-  saveInstructors();
+  subRequests.forEach(r => { delete r.statuses[id]; r.crossedOut = r.crossedOut.filter(x => x !== id); });
+  if (currentUser) {
+    await db.from('sub_instructors').delete().eq('id', id).eq('user_id', currentUser.id);
+  }
   saveSubRequests();
   renderSubView();
 }
@@ -1444,9 +1495,11 @@ function newSubRequest() {
   renderSubView();
 }
 
-function deleteSubRequest(id) {
+async function deleteSubRequest(id) {
   subRequests = subRequests.filter(r => r.id !== id);
-  saveSubRequests();
+  if (currentUser) {
+    await db.from('sub_requests').delete().eq('id', id).eq('user_id', currentUser.id);
+  }
   renderSubView();
 }
 
