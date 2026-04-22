@@ -540,6 +540,47 @@ textarea { resize: vertical; min-height: 72px; }
   .print-preview { border: none; padding: 0; }
   main { padding: 0; }
 }
+
+/* ── Sub Finder ── */
+.sub-class-form { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.sub-class-form .full { grid-column: 1 / -1; }
+@media (max-width: 500px) { .sub-class-form { grid-template-columns: 1fr; } }
+
+.instructor-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 0; border-bottom: 1px solid var(--border);
+}
+.instructor-row:last-child { border-bottom: none; }
+.instructor-name { flex: 1; font-weight: 500; }
+.status-btns { display: flex; gap: 0.4rem; }
+.status-btn {
+  padding: 0.3rem 0.7rem; border-radius: 20px; border: 1.5px solid var(--border);
+  font-size: 0.78rem; cursor: pointer; background: var(--surface);
+  color: var(--text-muted); transition: all 0.15s; font-weight: 500;
+}
+.status-btn.active-asked { background: #fff3cd; border-color: #d4a017; color: #7a5c00; }
+.status-btn.active-no { background: var(--red-light); border-color: var(--red); color: var(--red); }
+.status-btn.active-confirmed { background: var(--green-light); border-color: var(--green); color: var(--green); }
+.instructor-row.is-no { opacity: 0.45; }
+.instructor-row.is-confirmed { background: var(--green-light); border-radius: var(--radius-sm); padding-left: 0.5rem; }
+
+.text-preview {
+  background: var(--surface-warm); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 1rem; font-size: 0.9rem;
+  line-height: 1.6; white-space: pre-wrap; color: var(--text);
+}
+.copy-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+.copied-badge {
+  font-size: 0.78rem; color: var(--green); font-weight: 600;
+  opacity: 0; transition: opacity 0.3s;
+}
+.sub-section-label {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.75rem;
+}
+.add-instructor-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.add-instructor-row input { flex: 1; }
+.no-instructors { color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 1.5rem 0; }
 </style>
 </head>
 <body>
@@ -583,6 +624,7 @@ textarea { resize: vertical; min-height: 72px; }
         <button onclick="showView('hours')">Add Hours</button>
         <button onclick="showView('entries')">All Entries</button>
         <button onclick="showView('export')">Export</button>
+        <button onclick="showView('sub')">Find Sub</button>
       </nav>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
@@ -749,6 +791,43 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
       <div id="export-preview" style="display:none;"></div>
     </div>
+
+    <!-- Find Sub -->
+    <div id="view-sub" class="view">
+      <div class="card">
+        <h2>Find a Sub</h2>
+        <p class="sub-section-label">Class Details</p>
+        <div class="sub-class-form">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="sub-date">
+          </div>
+          <div class="form-group">
+            <label>Time</label>
+            <input type="time" id="sub-time">
+          </div>
+          <div class="form-group full">
+            <label>Location</label>
+            <input type="text" id="sub-location" placeholder="e.g. Main Studio, Room 2">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="sub-section-label">Instructors</p>
+        <div id="instructor-list"></div>
+        <div class="add-instructor-row">
+          <input type="text" id="new-instructor-name" placeholder="Instructor name" maxlength="50">
+          <button class="btn btn-primary" onclick="addInstructor()">Add</button>
+        </div>
+      </div>
+
+      <div class="card" id="sub-texts-card" style="display:none;">
+        <p class="sub-section-label">Generated Texts</p>
+        <div id="sub-ask-section"></div>
+        <div id="sub-reminder-section" style="display:none; margin-top:1.25rem;"></div>
+      </div>
+    </div>
   </main>
 
   <!-- Bottom nav (mobile) -->
@@ -768,6 +847,9 @@ textarea { resize: vertical; min-height: 72px; }
       </button>
       <button class="tab-btn" onclick="showView('export')">
         <span class="tab-icon">📤</span><span class="tab-label">Export</span>
+      </button>
+      <button class="tab-btn" onclick="showView('sub')">
+        <span class="tab-icon">🔄</span><span class="tab-label">Find Sub</span>
       </button>
     </div>
   </nav>
@@ -894,7 +976,7 @@ function initApp() {
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
-  const idx = ['dashboard','expenses','hours','entries','export'].indexOf(id);
+  const idx = ['dashboard','expenses','hours','entries','export','sub'].indexOf(id);
   document.querySelectorAll('header nav button').forEach((b,i) => b.classList.toggle('active', i === idx));
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
   window.scrollTo(0, 0);
@@ -902,6 +984,7 @@ function showView(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'entries') renderEntries();
   if (id === 'export') { applyExportPreset(); generatePreview(); }
+  if (id === 'sub') { renderInstructorList(); renderSubTexts(); }
 }
 
 // ── DB helpers ────────────────────────────────────────────────────
@@ -1297,6 +1380,138 @@ function toast(msg) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
 }
+
+// ── Sub Finder ────────────────────────────────────────────────────
+let instructors = JSON.parse(localStorage.getItem('sub_instructors') || '[]');
+let subStatuses = {}; // id -> 'asked' | 'no' | 'confirmed'
+
+function saveInstructors() {
+  localStorage.setItem('sub_instructors', JSON.stringify(instructors));
+}
+
+function addInstructor() {
+  const input = document.getElementById('new-instructor-name');
+  const name = input.value.trim();
+  if (!name) return;
+  instructors.push({ id: Date.now().toString(), name });
+  saveInstructors();
+  input.value = '';
+  renderInstructorList();
+}
+
+function removeInstructor(id) {
+  instructors = instructors.filter(i => i.id !== id);
+  delete subStatuses[id];
+  saveInstructors();
+  renderInstructorList();
+  renderSubTexts();
+}
+
+function setStatus(id, status) {
+  subStatuses[id] = subStatuses[id] === status ? null : status;
+  renderInstructorList();
+  renderSubTexts();
+}
+
+function getClassDetails() {
+  const date = document.getElementById('sub-date').value;
+  const time = document.getElementById('sub-time').value;
+  const location = document.getElementById('sub-location').value.trim();
+  const dateStr = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) : '[date]';
+  const timeStr = time ? new Date('1970-01-01T' + time).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : '[time]';
+  const locStr = location || '[location]';
+  return { dateStr, timeStr, locStr };
+}
+
+function askText(name) {
+  const { dateStr, timeStr, locStr } = getClassDetails();
+  return `Hi ${name}! I'm looking for a sub for my class at ${locStr} on ${dateStr} at ${timeStr}. Are you available? 🙏`;
+}
+
+function reminderText(name) {
+  const { dateStr, timeStr, locStr } = getClassDetails();
+  return `Hi ${name}! Just a reminder that you're subbing my class at ${locStr} on ${dateStr} at ${timeStr}. Thank you so much! 🙏`;
+}
+
+function copyText(text, badgeId) {
+  navigator.clipboard.writeText(text).then(() => {
+    const badge = document.getElementById(badgeId);
+    if (badge) { badge.style.opacity = '1'; setTimeout(() => badge.style.opacity = '0', 2000); }
+  });
+}
+
+function renderInstructorList() {
+  const el = document.getElementById('instructor-list');
+  if (!instructors.length) {
+    el.innerHTML = '<p class="no-instructors">No instructors yet — add one below.</p>';
+    return;
+  }
+  el.innerHTML = instructors.map(inst => {
+    const s = subStatuses[inst.id];
+    return `
+      <div class="instructor-row ${s === 'no' ? 'is-no' : ''} ${s === 'confirmed' ? 'is-confirmed' : ''}">
+        <span class="instructor-name">${inst.name}</span>
+        <div class="status-btns">
+          <button class="status-btn ${s === 'asked' ? 'active-asked' : ''}" onclick="setStatus('${inst.id}','asked')">Asked</button>
+          <button class="status-btn ${s === 'no' ? 'active-no' : ''}" onclick="setStatus('${inst.id}','no')">No</button>
+          <button class="status-btn ${s === 'confirmed' ? 'active-confirmed' : ''}" onclick="setStatus('${inst.id}','confirmed')">✓ Yes</button>
+          <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderSubTexts() {
+  const card = document.getElementById('sub-texts-card');
+  const askSection = document.getElementById('sub-ask-section');
+  const reminderSection = document.getElementById('sub-reminder-section');
+
+  const asked = instructors.filter(i => subStatuses[i.id] === 'asked');
+  const confirmed = instructors.find(i => subStatuses[i.id] === 'confirmed');
+
+  if (!asked.length && !confirmed) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  if (asked.length) {
+    askSection.innerHTML = `<p class="sub-section-label">Ask texts</p>` +
+      asked.map(inst => {
+        const bid = 'copy-ask-' + inst.id;
+        const txt = askText(inst.name);
+        return `
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.25rem;">${inst.name}</p>
+          <div class="text-preview">${txt}</div>
+          <div class="copy-row">
+            <button class="btn btn-primary btn-sm" onclick="copyText(\`${txt.replace(/`/g,'\\`')}\`,'${bid}')">Copy</button>
+            <span class="copied-badge" id="${bid}">Copied!</span>
+          </div>`;
+      }).join('<div style="margin-top:1rem"></div>');
+  } else {
+    askSection.innerHTML = '';
+  }
+
+  if (confirmed) {
+    const bid = 'copy-reminder';
+    const txt = reminderText(confirmed.name);
+    reminderSection.style.display = 'block';
+    reminderSection.innerHTML = `
+      <p class="sub-section-label">Reminder text for ${confirmed.name}</p>
+      <div class="text-preview">${txt}</div>
+      <div class="copy-row">
+        <button class="btn btn-green btn-sm" onclick="copyText(\`${txt.replace(/`/g,'\\`')}\`,'${bid}')">Copy Reminder</button>
+        <span class="copied-badge" id="${bid}">Copied!</span>
+      </div>`;
+  } else {
+    reminderSection.style.display = 'none';
+  }
+}
+
+// Re-render texts when class details change
+['sub-date','sub-time','sub-location'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderSubTexts);
+});
+document.getElementById('new-instructor-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addInstructor();
+});
 
 // ── Service worker ────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
