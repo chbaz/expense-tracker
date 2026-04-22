@@ -559,9 +559,11 @@ textarea { resize: vertical; min-height: 72px; }
   color: var(--text-muted); transition: all 0.15s; font-weight: 500;
 }
 .status-btn.active-asked { background: #fff3cd; border-color: #d4a017; color: #7a5c00; }
+.status-btn.active-maybe { background: #e8f0fe; border-color: #4a7fd4; color: #2a5aaa; }
 .status-btn.active-no { background: var(--red-light); border-color: var(--red); color: var(--red); }
 .status-btn.active-confirmed { background: var(--green-light); border-color: var(--green); color: var(--green); }
 .instructor-row.is-no { opacity: 0.45; }
+.instructor-row.is-maybe { background: #e8f0fe; border-radius: var(--radius-sm); padding-left: 0.5rem; }
 .instructor-row.is-confirmed { background: var(--green-light); border-radius: var(--radius-sm); padding-left: 0.5rem; }
 
 .text-preview {
@@ -1449,10 +1451,11 @@ function renderInstructorList() {
   el.innerHTML = instructors.map(inst => {
     const s = subStatuses[inst.id];
     return `
-      <div class="instructor-row ${s === 'no' ? 'is-no' : ''} ${s === 'confirmed' ? 'is-confirmed' : ''}">
+      <div class="instructor-row ${s === 'no' ? 'is-no' : ''} ${s === 'maybe' ? 'is-maybe' : ''} ${s === 'confirmed' ? 'is-confirmed' : ''}">
         <span class="instructor-name">${inst.name}</span>
         <div class="status-btns">
           <button class="status-btn ${s === 'asked' ? 'active-asked' : ''}" onclick="setStatus('${inst.id}','asked')">Asked</button>
+          <button class="status-btn ${s === 'maybe' ? 'active-maybe' : ''}" onclick="setStatus('${inst.id}','maybe')">Maybe</button>
           <button class="status-btn ${s === 'no' ? 'active-no' : ''}" onclick="setStatus('${inst.id}','no')">No</button>
           <button class="status-btn ${s === 'confirmed' ? 'active-confirmed' : ''}" onclick="setStatus('${inst.id}','confirmed')">✓ Yes</button>
           <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">✕</button>
