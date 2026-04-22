@@ -1460,7 +1460,7 @@ function updateReqField(id, field, value) {
   if (!req) return;
   req[field] = value;
   saveSubRequests();
-  if (field === 'classType') renderRequestInstructors(id);
+  if (field === 'classType') { renderSubRequests(); return; }
   renderRequestTexts(id);
 }
 
@@ -1663,7 +1663,7 @@ function renderSubRequests() {
               <label>Original Instructor</label>
               <select onchange="setOriginalInstructor('${req.id}',this.value)">
                 <option value="">— select —</option>
-                ${[...instructors].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}" ${req.originalInstructor===i.id?'selected':''}>${i.name}</option>`).join('')}
+                ${[...instructors].filter(i=>!req.classType||(i.categories||[]).includes(req.classType)).sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}" ${req.originalInstructor===i.id?'selected':''}>${i.name}</option>`).join('')}
               </select>
             </div>
           </div>
