@@ -1466,7 +1466,7 @@ function renderRequestInstructors(reqId) {
     el.innerHTML = '<p class="no-instructors">Add instructors in the list below.</p>';
     return;
   }
-  el.innerHTML = instructors.map(inst => {
+  el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => {
     const s = req.statuses[inst.id];
     return `
       <div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}">
@@ -1583,7 +1583,7 @@ function renderGlobalInstructors() {
     el.innerHTML = '<p class="no-instructors">No instructors yet — add one below.</p>';
     return;
   }
-  el.innerHTML = instructors.map(inst => `
+  el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => `
     <div class="instructor-row">
       <span class="instructor-name">${inst.name}</span>
       <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">Remove</button>
