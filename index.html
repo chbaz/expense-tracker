@@ -1701,7 +1701,7 @@ function reqCard(req) {
     ? `<span style="color:var(--green);font-weight:600;">✓ ${confirmed.name} confirmed</span>`
     : [askedCount ? `${askedCount} asked` : '', noCount ? `${noCount} no` : ''].filter(Boolean).join(', ') || '';
   return `
-    <div class="card" style="padding:0;border-left:4px solid ${req.completed?'#aaa':'var(--green)'};${req.completed?'opacity:0.75;background:#fafafa;':''}">
+    <div class="card" style="padding:0;border-left:4px solid ${req.completed?'#aaa':'var(--green)'};${req.completed?'opacity:0.75;background:#fafafa;':'background:#f0f7f1;'}">
       <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
         <div>
           <div style="font-weight:600;">${label}</div>
@@ -1718,7 +1718,14 @@ function reqCard(req) {
           </div>
           <div class="form-group">
             <label>Time</label>
-            <input type="time" value="${req.time}" onchange="updateReqField('${req.id}','time',this.value)">
+            <select onchange="updateReqField('${req.id}','time',this.value)">
+              <option value="">— select —</option>
+              ${['05:30','07:30','08:45','09:15','09:30','10:00','12:00','14:00','16:00','16:30','17:30','18:00','19:00'].map(t=>{
+                const [h,m]=t.split(':'),hr=+h,label=(hr<12?hr||12:hr===12?12:hr-12)+':'+m+(hr<12?'am':'pm').replace(':00am',':00am').replace(':00pm',':00pm');
+                const disp=m==='00'?(hr<12?(hr===0?'12am':hr+'am'):(hr===12?'12pm':(hr-12)+'pm')):(hr<12?hr+':'+m+'am':(hr===12?'12:'+m+'pm':(hr-12)+':'+m+'pm'));
+                return `<option value="${t}" ${req.time===t?'selected':''}>${disp}</option>`;
+              }).join('')}
+            </select>
           </div>
           <div class="form-group">
             <label>Class Type</label>
