@@ -1659,8 +1659,9 @@ function renderRequestTexts(reqId) {
   if (!el) return;
   const req = subRequests.find(r => r.id === reqId);
   if (!req) return;
-  const asked = instructors.filter(i => req.statuses[i.id] === 'asked' || req.statuses[i.id] === 'maybe');
-  const confirmed = instructors.find(i => req.statuses[i.id] === 'confirmed');
+  const eligible = req.classType ? instructors.filter(i => (i.categories||[]).includes(req.classType)) : instructors;
+  const asked = eligible.filter(i => req.statuses[i.id] === 'asked' || req.statuses[i.id] === 'maybe');
+  const confirmed = eligible.find(i => req.statuses[i.id] === 'confirmed');
   if (!asked.length && !confirmed) { el.innerHTML = ''; return; }
 
   let html = '';
@@ -1693,9 +1694,10 @@ function renderRequestTexts(reqId) {
 }
 
 function reqCard(req) {
-  const confirmed = instructors.find(i => req.statuses[i.id] === 'confirmed');
-  const askedCount = instructors.filter(i => ['asked','maybe'].includes(req.statuses[i.id])).length;
-  const noCount = instructors.filter(i => req.statuses[i.id] === 'no').length;
+  const eligible = req.classType ? instructors.filter(i => (i.categories||[]).includes(req.classType)) : instructors;
+  const confirmed = eligible.find(i => req.statuses[i.id] === 'confirmed');
+  const askedCount = eligible.filter(i => ['asked','maybe'].includes(req.statuses[i.id])).length;
+  const noCount = eligible.filter(i => req.statuses[i.id] === 'no').length;
   const label = [req.date ? fmtDate(req.date) : '', req.time ? fmtTime(req.time) : '', req.location].filter(Boolean).join(' · ') || 'New Request';
   const summary = confirmed
     ? `<span style="color:var(--green);font-weight:600;">✓ ${confirmed.name} confirmed</span>`
