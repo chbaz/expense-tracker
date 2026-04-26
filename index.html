@@ -821,7 +821,7 @@ textarea { resize: vertical; min-height: 72px; }
     <div id="view-sub" class="view">
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
         <h2 style="margin:0;">Sub Requests</h2>
-        <button class="btn btn-primary" onclick="newSubRequest()">+ New Request</button>
+        <button class="btn btn-primary" onclick="openNewReqModal()">+ New Request</button>
       </div>
       <div id="sub-requests-list"></div>
       <div class="card" style="padding:0;">
@@ -843,7 +843,7 @@ textarea { resize: vertical; min-height: 72px; }
   <!-- Bottom nav (mobile) -->
   <nav class="bottom-nav">
     <div class="bottom-nav-inner">
-      <button class="tab-btn active" onclick="showView('dashboard')">
+      <button class="tab-btn" onclick="showView('dashboard')">
         <span class="tab-icon">📊</span><span class="tab-label">Dashboard</span>
       </button>
       <button class="tab-btn" onclick="showView('expenses')">
@@ -858,11 +858,65 @@ textarea { resize: vertical; min-height: 72px; }
       <button class="tab-btn" onclick="showView('export')">
         <span class="tab-icon">📤</span><span class="tab-label">Export</span>
       </button>
-      <button class="tab-btn" onclick="showView('sub')">
+      <button class="tab-btn active" onclick="showView('sub')">
         <span class="tab-icon">🔄</span><span class="tab-label">Find Sub</span>
       </button>
     </div>
   </nav>
+</div>
+
+<!-- New Sub Request Modal -->
+<div class="modal-backdrop" id="new-req-modal">
+  <div class="modal" style="max-width:400px;">
+    <h2 style="margin-bottom:1.25rem;">New Sub Request</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="nr-date">
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <select id="nr-time">
+          <option value="">— select —</option>
+          <option value="05:30">5:30am</option>
+          <option value="07:30">7:30am</option>
+          <option value="08:45">8:45am</option>
+          <option value="09:15">9:15am</option>
+          <option value="09:30">9:30am</option>
+          <option value="10:00">10am</option>
+          <option value="12:00">12pm</option>
+          <option value="14:00">2pm</option>
+          <option value="16:00">4pm</option>
+          <option value="16:30">4:30pm</option>
+          <option value="17:30">5:30pm</option>
+          <option value="18:00">6pm</option>
+          <option value="19:00">7pm</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Class Type</label>
+        <select id="nr-classType">
+          <option value="">— select —</option>
+          <option value="PILATES">PILATES</option>
+          <option value="YIN">YIN</option>
+          <option value="BIKRAM">BIKRAM</option>
+          <option value="SUMITS">SUMITS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <select id="nr-location">
+          <option value="">— select —</option>
+          <option value="Shea">Shea</option>
+          <option value="McDowell">McDowell</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:1.25rem;">
+      <button class="btn btn-primary" onclick="createReqFromModal()">Create Request</button>
+      <button class="btn btn-secondary" onclick="closeNewReqModal()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- Edit Modal -->
@@ -981,6 +1035,7 @@ function initApp() {
   document.getElementById('hrs-date').value = today();
   applyDashPreset();
   loadSubData();
+  showView('sub');
 }
 
 // ── Navigation ────────────────────────────────────────────────────
@@ -1488,6 +1543,30 @@ async function removeInstructor(id) {
   renderSubView();
 }
 
+function openNewReqModal() {
+  document.getElementById('nr-date').value = today();
+  document.getElementById('nr-time').value = '';
+  document.getElementById('nr-classType').value = '';
+  document.getElementById('nr-location').value = '';
+  document.getElementById('new-req-modal').classList.add('open');
+}
+function closeNewReqModal() {
+  document.getElementById('new-req-modal').classList.remove('open');
+}
+function createReqFromModal() {
+  const req = {
+    id: Date.now().toString(),
+    date: document.getElementById('nr-date').value,
+    time: document.getElementById('nr-time').value,
+    location: document.getElementById('nr-location').value,
+    classType: document.getElementById('nr-classType').value,
+    originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false
+  };
+  closeNewReqModal();
+  subRequests.unshift(req);
+  saveSubRequests();
+  renderSubView();
+}
 function newSubRequest() {
   const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false };
   subRequests.unshift(req);
@@ -1696,24 +1775,49 @@ function renderRequestTexts(reqId) {
 function reqCard(req) {
   const eligible = req.classType ? instructors.filter(i => (i.categories||[]).includes(req.classType)) : instructors;
   const confirmed = eligible.find(i => req.statuses[i.id] === 'confirmed');
-  const askedCount = eligible.filter(i => ['asked','maybe'].includes(req.statuses[i.id])).length;
+  const askedInsts = eligible.filter(i => ['asked','maybe'].includes(req.statuses[i.id]));
   const noCount = eligible.filter(i => req.statuses[i.id] === 'no').length;
-  const label = [req.date ? fmtDate(req.date) : '', req.time ? fmtTime(req.time) : '', req.location].filter(Boolean).join(' · ') || 'New Request';
-  const summary = confirmed
-    ? `<span style="color:var(--green);font-weight:600;">✓ ${confirmed.name} confirmed</span>`
-    : [askedCount ? `${askedCount} asked` : '', noCount ? `${noCount} no` : ''].filter(Boolean).join(', ') || '';
+
+  const datePart = req.date ? fmtDate(req.date) : '';
+  const timePart = req.time ? fmtTime(req.time) : '';
+  const locPart = req.location || '';
+  const typePart = req.classType ? `<span style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);margin-left:0.4rem;">${req.classType}</span>` : '';
+  const titleLine = [datePart, timePart, locPart].filter(Boolean).join(' · ') || 'New Request';
+
+  // Status chips for collapsed row
+  let statusChips = '';
+  if (confirmed) {
+    const bid = `rem-${req.id}-q`;
+    const txt = buildReminderText(confirmed.name, req);
+    const esc = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+    statusChips = `<span style="color:var(--green);font-weight:600;font-size:0.82rem;">✓ ${confirmed.name}</span>
+      <button class="btn btn-green btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Reminder</button>
+      <span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>`;
+  } else if (askedInsts.length) {
+    statusChips = askedInsts.map(inst => {
+      const bid = `ask-${req.id}-${inst.id}-q`;
+      const txt = buildAskText(inst.name, req);
+      const esc = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+      return `<button class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Ask — ${firstName(inst.name)}</button><span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>`;
+    }).join('');
+    if (noCount) statusChips += `<span style="font-size:0.8rem;color:var(--text-muted);">${noCount} no</span>`;
+  } else if (noCount) {
+    statusChips = `<span style="font-size:0.8rem;color:var(--text-muted);">${noCount} no</span>`;
+  }
+
   return `
-    <div class="card" style="padding:0;border-left:4px solid ${req.completed?'#aaa':'var(--green)'};${req.completed?'opacity:0.75;background:#fafafa;':'background:#f0f7f1;'}">
-      <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
-        <div>
-          <div style="font-weight:600;">${label}</div>
-          ${summary ? `<div style="font-size:0.82rem;margin-top:0.2rem;color:var(--text-muted);">${summary}</div>` : ''}
+    <div class="card" style="padding:0;border-left:4px solid ${req.completed?'#aaa':'var(--green)'};${req.completed?'opacity:0.75;background:#fafafa;':'background:#f0f7f1;'}margin-bottom:0.75rem;">
+      <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:0.85rem 1.1rem 0.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.95rem;">${titleLine}${typePart}</div>
+          ${statusChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;margin-top:0.45rem;">${statusChips}</div>` : ''}
+          ${req.notes ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;font-style:italic;">${req.notes}</div>` : ''}
         </div>
-        <span style="color:var(--text-muted);font-size:1.1rem;">${req.open ? '▲' : '▼'}</span>
+        <span style="color:var(--text-muted);font-size:1rem;padding-top:2px;">${req.open ? '▲' : '▼'}</span>
       </div>
       ${req.open ? `
-      <div style="padding:0 1.25rem 1.25rem;border-top:1px solid var(--border);">
-        <div class="sub-class-form" style="margin-top:1rem;">
+      <div style="padding:0 1.1rem 1.1rem;border-top:1px solid var(--border);">
+        <div class="sub-class-form" style="margin-top:0.9rem;">
           <div class="form-group">
             <label>Date</label>
             <input type="date" value="${req.date}" onchange="updateReqField('${req.id}','date',this.value)">
@@ -1723,7 +1827,7 @@ function reqCard(req) {
             <select onchange="updateReqField('${req.id}','time',this.value)">
               <option value="">— select —</option>
               ${['05:30','07:30','08:45','09:15','09:30','10:00','12:00','14:00','16:00','16:30','17:30','18:00','19:00'].map(t=>{
-                const [h,m]=t.split(':'),hr=+h,label=(hr<12?hr||12:hr===12?12:hr-12)+':'+m+(hr<12?'am':'pm').replace(':00am',':00am').replace(':00pm',':00pm');
+                const [h,m]=t.split(':'),hr=+h;
                 const disp=m==='00'?(hr<12?(hr===0?'12am':hr+'am'):(hr===12?'12pm':(hr-12)+'pm')):(hr<12?hr+':'+m+'am':(hr===12?'12:'+m+'pm':(hr-12)+':'+m+'pm'));
                 return `<option value="${t}" ${req.time===t?'selected':''}>${disp}</option>`;
               }).join('')}
@@ -1732,7 +1836,7 @@ function reqCard(req) {
           <div class="form-group">
             <label>Class Type</label>
             <select onchange="updateReqField('${req.id}','classType',this.value)">
-              <option value="" ${!req.classType?'selected':''}>All</option>
+              <option value="" ${!req.classType?'selected':''}>— select —</option>
               ${CATEGORIES.map(c=>`<option value="${c}" ${req.classType===c?'selected':''}>${c}</option>`).join('')}
             </select>
           </div>
@@ -1752,14 +1856,14 @@ function reqCard(req) {
             </select>
           </div>
         </div>
-        ${!req.completed ? `<p class="sub-section-label" style="margin-top:1.25rem;">Instructors</p>
+        ${!req.completed ? `<p class="sub-section-label" style="margin-top:1.1rem;">Instructors</p>
         <div id="inst-list-${req.id}"></div>
         <div id="texts-${req.id}"></div>` : ''}
-        <div class="form-group" style="margin-top:1.25rem;">
+        <div class="form-group" style="margin-top:1rem;">
           <label>Notes</label>
-          <textarea rows="3" placeholder="Any notes for this request…" oninput="updateReqField('${req.id}','notes',this.value)" style="resize:vertical;">${req.notes||''}</textarea>
+          <textarea rows="2" placeholder="Any notes…" oninput="updateReqField('${req.id}','notes',this.value)" style="resize:vertical;">${req.notes||''}</textarea>
         </div>
-        <div style="margin-top:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+        <div style="margin-top:0.9rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
           ${!req.completed
             ? `<button class="btn btn-green btn-sm" onclick="markComplete('${req.id}')">✓ Mark Complete</button>`
             : `<button class="btn btn-secondary btn-sm" onclick="reopenRequest('${req.id}')">Reopen</button>`}
