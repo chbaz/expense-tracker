@@ -1,4 +1,4 @@
-const CACHE = 'studio-tracker-v23';
+const CACHE = 'studio-tracker-v24';
 const ASSETS = [
   './index.html',
   './manifest.json',

@@ -606,6 +606,29 @@ textarea { resize: vertical; min-height: 72px; }
   padding: 0.75rem 0 0.25rem; border-top: 1px solid var(--border); margin-top: 0.25rem;
 }
 .cat-group-header:first-child { border-top: none; padding-top: 0; }
+
+/* ── Sync view ── */
+.status-badge {
+  display:inline-block; padding:2px 9px; border-radius:12px;
+  font-size:0.75rem; font-weight:700; white-space:nowrap;
+}
+.status-badge.active        { background:#e4f4e8; color:#2d7a3a; }
+.status-badge.recentlyLapsed{ background:#fdebd8; color:#b05a10; }
+.status-badge.lapsed        { background:#fef9e0; color:#8a6c00; }
+.status-badge.inactive      { background:#f0f0f0; color:#666; }
+
+.sync-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+.sync-table th { text-align:left; padding:8px 12px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+.sync-table td { padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.sync-table tr:last-child td { border-bottom:none; }
+.sync-table tr:hover td { background:var(--surface-warm); }
+
+.history-row { display:flex; gap:1rem; padding:0.6rem 0; border-bottom:1px solid var(--border); font-size:0.85rem; flex-wrap:wrap; align-items:center; }
+.history-row:last-child { border-bottom:none; }
+.history-pill { padding:1px 7px; border-radius:10px; font-size:0.75rem; font-weight:600; }
+.history-pill.synced  { background:var(--green-light); color:var(--green); }
+.history-pill.skipped { background:var(--surface-warm); color:var(--text-muted); }
+.history-pill.failed  { background:var(--red-light); color:var(--red); }
 </style>
 </head>
 <body>
@@ -650,6 +673,7 @@ textarea { resize: vertical; min-height: 72px; }
         <button onclick="showView('entries')">All Entries</button>
         <button onclick="showView('export')">Export</button>
         <button onclick="showView('sub')">Find Sub</button>
+        <button onclick="showView('sync')">Sync</button>
       </nav>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
@@ -838,6 +862,77 @@ textarea { resize: vertical; min-height: 72px; }
         </div>
       </div>
     </div>
+
+    <!-- Momence → Brevo Sync -->
+    <div id="view-sync" class="view">
+      <!-- Status Cards -->
+      <div class="stats-grid" id="sync-counts-grid">
+        <div class="stat-card" style="border-left:4px solid var(--green);">
+          <div class="stat-label">Active</div>
+          <div class="stat-value" id="sc-active" style="color:var(--green);">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #e07b30;">
+          <div class="stat-label">Recently Lapsed</div>
+          <div class="stat-value" id="sc-recentlyLapsed" style="color:#e07b30;">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #c8a228;">
+          <div class="stat-label">Lapsed</div>
+          <div class="stat-value" id="sc-lapsed" style="color:#c8a228;">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #999;">
+          <div class="stat-label">Inactive</div>
+          <div class="stat-value" id="sc-inactive" style="color:#999;">—</div>
+        </div>
+      </div>
+
+      <!-- Run Sync -->
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <div style="font-weight:700;font-size:1.05rem;">Momence → Brevo Sync</div>
+          <div id="sync-last-run" style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <button class="btn btn-primary" id="run-sync-btn" onclick="runSync()">▶ Run Sync</button>
+      </div>
+
+      <!-- Progress / Result -->
+      <div id="sync-progress" style="display:none;" class="card" style="text-align:center;">
+        <div class="spinner"><div class="spin"></div> Syncing contacts… this may take a minute.</div>
+      </div>
+      <div id="sync-result" style="display:none;" class="card">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;">
+          <div><div class="stat-label">Synced</div><div style="font-size:1.6rem;font-weight:700;color:var(--green);" id="sr-synced">—</div></div>
+          <div><div class="stat-label">Skipped</div><div style="font-size:1.6rem;font-weight:700;color:var(--text-muted);" id="sr-skipped">—</div></div>
+          <div><div class="stat-label">Failed</div><div style="font-size:1.6rem;font-weight:700;color:var(--red);" id="sr-failed">—</div></div>
+          <div><div class="stat-label">Total</div><div style="font-size:1.6rem;font-weight:700;" id="sr-total">—</div></div>
+        </div>
+        <div id="sr-error" style="margin-top:0.75rem;color:var(--red);font-size:0.85rem;display:none;"></div>
+      </div>
+
+      <!-- Member Table -->
+      <div class="card" style="padding:0;">
+        <div style="padding:1rem 1.25rem;display:flex;align-items:center;flex-wrap:wrap;gap:0.75rem;border-bottom:1px solid var(--border);">
+          <input type="text" id="sync-search" placeholder="Search name, email, phone…" style="flex:1;min-width:160px;" oninput="debouncedLoadMembers()">
+          <select id="sync-status-filter" onchange="loadMembers(0)" style="width:auto;">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="recentlyLapsed">Recently Lapsed</option>
+            <option value="lapsed">Lapsed</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div id="sync-member-table" style="overflow-x:auto;">
+          <div style="padding:2rem;text-align:center;color:var(--text-muted);">Run a sync or load members.</div>
+        </div>
+        <div id="sync-pagination" style="padding:0.75rem 1.25rem;display:flex;gap:0.5rem;align-items:center;border-top:1px solid var(--border);display:none;"></div>
+      </div>
+
+      <!-- Sync History -->
+      <div class="card" style="padding:0;">
+        <div style="padding:1rem 1.25rem;font-weight:700;border-bottom:1px solid var(--border);">Sync History</div>
+        <div id="sync-history" style="padding:1rem 1.25rem;color:var(--text-muted);font-size:0.9rem;">No sync history yet.</div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom nav (mobile) -->
@@ -860,6 +955,9 @@ textarea { resize: vertical; min-height: 72px; }
       </button>
       <button class="tab-btn active" onclick="showView('sub')">
         <span class="tab-icon">🔄</span><span class="tab-label">Find Sub</span>
+      </button>
+      <button class="tab-btn" onclick="showView('sync')">
+        <span class="tab-icon">📡</span><span class="tab-label">Sync</span>
       </button>
     </div>
   </nav>
@@ -1042,7 +1140,7 @@ function initApp() {
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
-  const idx = ['dashboard','expenses','hours','entries','export','sub'].indexOf(id);
+  const idx = ['dashboard','expenses','hours','entries','export','sub','sync'].indexOf(id);
   document.querySelectorAll('header nav button').forEach((b,i) => b.classList.toggle('active', i === idx));
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
   window.scrollTo(0, 0);
@@ -1051,6 +1149,7 @@ function showView(id) {
   if (id === 'entries') renderEntries();
   if (id === 'export') { applyExportPreset(); generatePreview(); }
   if (id === 'sub') { renderSubView(); }
+  if (id === 'sync') { loadSyncDashboard(); }
 }
 
 // ── DB helpers ────────────────────────────────────────────────────
@@ -1961,6 +2060,147 @@ document.getElementById('new-instructor-name').addEventListener('keydown', e => 
 // ── Service worker ────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── Momence → Brevo Sync ──────────────────────────────────────────
+const SYNC_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/sync-contacts';
+const MEMBERS_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/get-members';
+let syncMemberPage = 0;
+let syncMemberTotal = 0;
+
+function statusBadge(s) {
+  const labels = { active:'Active', recentlyLapsed:'Recently Lapsed', lapsed:'Lapsed', inactive:'Inactive' };
+  return `<span class="status-badge ${s}">${labels[s]||s}</span>`;
+}
+
+async function loadSyncDashboard() {
+  try {
+    const res = await fetch(SYNC_URL);
+    const data = await res.json();
+    document.getElementById('sc-active').textContent = data.counts.active ?? '—';
+    document.getElementById('sc-recentlyLapsed').textContent = data.counts.recentlyLapsed ?? '—';
+    document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
+    document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
+    renderSyncHistory(data.history ?? []);
+    if (data.counts.total > 0) loadMembers(0);
+  } catch(e) {
+    console.error('loadSyncDashboard', e);
+  }
+}
+
+async function runSync() {
+  const btn = document.getElementById('run-sync-btn');
+  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  document.getElementById('sync-progress').style.display = '';
+  document.getElementById('sync-result').style.display = 'none';
+
+  try {
+    const res = await fetch(SYNC_URL, { method: 'POST' });
+    const data = await res.json();
+    document.getElementById('sync-progress').style.display = 'none';
+
+    if (!res.ok) {
+      toast(data.error || 'Sync failed');
+    } else {
+      document.getElementById('sr-synced').textContent = data.synced;
+      document.getElementById('sr-skipped').textContent = data.skipped;
+      document.getElementById('sr-failed').textContent = data.failed;
+      document.getElementById('sr-total').textContent = data.total;
+      const errEl = document.getElementById('sr-error');
+      if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; }
+      else errEl.style.display = 'none';
+      document.getElementById('sync-result').style.display = '';
+      toast('Sync complete!');
+      loadSyncDashboard();
+      loadMembers(0);
+    }
+  } catch(e) {
+    document.getElementById('sync-progress').style.display = 'none';
+    toast('Sync request failed — check connection.');
+  }
+
+  btn.disabled = false; btn.textContent = '▶ Run Sync';
+}
+
+let _membersDebounce;
+function debouncedLoadMembers() {
+  clearTimeout(_membersDebounce);
+  _membersDebounce = setTimeout(() => loadMembers(0), 350);
+}
+
+async function loadMembers(page = 0) {
+  syncMemberPage = page;
+  const search = document.getElementById('sync-search')?.value?.trim() ?? '';
+  const status = document.getElementById('sync-status-filter')?.value ?? '';
+  const params = new URLSearchParams({ page });
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+
+  document.getElementById('sync-member-table').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);"><div class="spinner"><div class="spin"></div> Loading…</div></div>';
+
+  try {
+    const res = await fetch(`${MEMBERS_URL}?${params}`);
+    const data = await res.json();
+    syncMemberTotal = data.total ?? 0;
+    renderMembersTable(data.members ?? []);
+    renderPagination(page, data.pageSize ?? 50);
+  } catch(e) {
+    document.getElementById('sync-member-table').innerHTML = '<div style="padding:1.5rem;color:var(--red);">Failed to load members.</div>';
+  }
+}
+
+function renderMembersTable(members) {
+  const el = document.getElementById('sync-member-table');
+  if (!members.length) {
+    el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">No members found.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="sync-table">
+    <thead><tr>
+      <th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Last Visit</th><th>Home Studio</th><th>Source</th><th>Tags</th>
+    </tr></thead>
+    <tbody>${members.map(m => `<tr>
+      <td style="white-space:nowrap;">${m.first_name||''} ${m.last_name||''}</td>
+      <td style="font-size:0.8rem;">${m.email||''}</td>
+      <td style="white-space:nowrap;font-size:0.8rem;">${m.phone||''}</td>
+      <td>${statusBadge(m.membership_status)}</td>
+      <td style="white-space:nowrap;font-size:0.8rem;">${m.last_visit_date||''}</td>
+      <td style="font-size:0.8rem;">${m.home_studio||''}</td>
+      <td style="font-size:0.8rem;">${m.source||''}</td>
+      <td style="font-size:0.78rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.tags||''}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderPagination(page, pageSize) {
+  const el = document.getElementById('sync-pagination');
+  const totalPages = Math.ceil(syncMemberTotal / pageSize);
+  if (totalPages <= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <button class="btn-sm" onclick="loadMembers(${page - 1})" ${page === 0 ? 'disabled' : ''}>← Prev</button>
+    <span style="font-size:0.85rem;color:var(--text-muted);align-self:center;">Page ${page+1} of ${totalPages} (${syncMemberTotal} total)</span>
+    <button class="btn-sm" onclick="loadMembers(${page + 1})" ${page >= totalPages - 1 ? 'disabled' : ''}>Next →</button>`;
+}
+
+function renderSyncHistory(logs) {
+  const el = document.getElementById('sync-history');
+  if (!logs.length) { el.innerHTML = '<span style="color:var(--text-muted);">No sync history yet.</span>'; return; }
+  el.innerHTML = logs.map(log => {
+    const ts = log.started_at ? new Date(log.started_at).toLocaleString() : '—';
+    const dur = log.started_at && log.finished_at
+      ? `${Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s`
+      : log.finished_at ? '' : '<span style="color:var(--accent);">running…</span>';
+    return `<div class="history-row">
+      <span style="color:var(--text-muted);font-size:0.8rem;white-space:nowrap;">${ts}</span>
+      ${log.synced != null ? `<span class="history-pill synced">${log.synced} synced</span>` : ''}
+      ${log.skipped != null ? `<span class="history-pill skipped">${log.skipped} skipped</span>` : ''}
+      ${log.failed ? `<span class="history-pill failed">${log.failed} failed</span>` : ''}
+      ${log.total != null ? `<span style="font-size:0.8rem;color:var(--text-muted);">of ${log.total}</span>` : ''}
+      ${dur ? `<span style="font-size:0.78rem;color:var(--text-muted);">${dur}</span>` : ''}
+      ${log.error ? `<span style="color:var(--red);font-size:0.78rem;">${log.error}</span>` : ''}
+    </div>`;
+  }).join('');
 }
 </script>
 </body>
