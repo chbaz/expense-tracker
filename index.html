@@ -44,127 +44,8 @@ body {
   line-height: 1.5;
 }
 
-/* ── Login ── */
-#login-screen {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: var(--bg);
-}
-
-.login-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2.5rem 2rem;
-  width: 100%;
-  max-width: 380px;
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-
-.login-logo {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.login-card h1 {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 0.25rem;
-}
-
-.login-card p {
-  font-size: 13.5px;
-  color: var(--text-muted);
-  margin-bottom: 1.75rem;
-}
-
-.login-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  text-align: left;
-  margin-bottom: 1rem;
-}
-
-.login-field label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.login-field input {
-  padding: 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--font);
-  width: 100%;
-  transition: border-color 0.15s;
-  letter-spacing: 0.05em;
-}
-
-.login-field input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(155,107,71,0.12);
-}
-
-.otp-input {
-  font-size: 1.6rem !important;
-  letter-spacing: 0.35em !important;
-  text-align: center;
-  font-weight: 700;
-}
-
-.login-btn {
-  width: 100%;
-  padding: 12px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s;
-  margin-top: 0.25rem;
-}
-.login-btn:hover { background: var(--accent-hover); }
-.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.login-hint {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin-top: 1rem;
-}
-
-.login-hint a {
-  color: var(--accent);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.login-error {
-  background: var(--red-light);
-  color: var(--red);
-  border-radius: var(--radius-sm);
-  padding: 9px 14px;
-  font-size: 13.5px;
-  margin-bottom: 1rem;
-  display: none;
-}
-
 /* ── App shell ── */
-#app { display: none; }
+#app { display: block; }
 
 header {
   background: var(--surface);
@@ -633,34 +514,6 @@ textarea { resize: vertical; min-height: 72px; }
 </head>
 <body>
 
-<!-- ── Login Screen ── -->
-<div id="login-screen">
-  <div class="login-card">
-    <div class="login-logo">🌿</div>
-    <h1>Studio Tracker</h1>
-    <p id="login-subtitle">Sign in to access your expenses and hours</p>
-
-    <div id="login-error" class="login-error"></div>
-
-    <!-- Step 1: Email -->
-    <div id="step-email">
-      <div class="login-field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@email.com" autocomplete="email">
-      </div>
-      <button class="login-btn" onclick="sendOTP()">Send Login Link</button>
-      <p class="login-hint">We'll email you a sign-in link — no password needed.</p>
-    </div>
-
-    <!-- Step 2: Check email -->
-    <div id="step-otp" style="display:none;">
-      <p style="text-align:center;font-size:2rem;margin:1rem 0;">📬</p>
-      <p style="text-align:center;color:#666;margin-bottom:1.5rem;">Check your inbox and click the link to sign in. You can close this tab.</p>
-      <p class="login-hint"><a onclick="backToEmail()">Use a different email</a> · <a onclick="sendOTP()">Resend link</a></p>
-    </div>
-  </div>
-</div>
-
 <!-- ── App ── -->
 <div id="app">
   <header>
@@ -675,7 +528,6 @@ textarea { resize: vertical; min-height: 72px; }
         <button onclick="showView('sub')">Find Sub</button>
         <button onclick="showView('sync')">Sync</button>
       </nav>
-      <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
   </header>
 
@@ -1061,95 +913,7 @@ const SUPABASE_URL = 'https://apehpupzkzpoedvswiga.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZWhwdXB6a3pwb2VkdnN3aWdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NDgwNzcsImV4cCI6MjA5MTUyNDA3N30.HEy5gRawDQrAHp-dtiMdeKgokSnytW7VnqO2xrwAo1w';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentUser = null;
-let otpEmail = '';
-
-// ── Auth ──────────────────────────────────────────────────────────
-async function sendOTP() {
-  const email = document.getElementById('login-email').value.trim();
-  if (!email || !email.includes('@')) { showLoginError('Please enter a valid email address.'); return; }
-  clearLoginError();
-  const btn = document.querySelector('#step-email .login-btn');
-  btn.disabled = true; btn.textContent = 'Sending…';
-
-  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: 'https://chbaz.github.io/expense-tracker/' } });
-  btn.disabled = false; btn.textContent = 'Send Login Code';
-
-  if (error) { showLoginError(error.message); return; }
-
-  otpEmail = email;
-  document.getElementById('step-email').style.display = 'none';
-  document.getElementById('step-otp').style.display = 'block';
-  document.getElementById('login-subtitle').textContent = `Code sent to ${email}`;
-  document.getElementById('login-otp').focus();
-}
-
-async function verifyOTP() {
-  const token = document.getElementById('login-otp').value.trim();
-  if (token.length !== 6) { showLoginError('Please enter the 6-digit code.'); return; }
-  clearLoginError();
-  const btn = document.querySelector('#step-otp .login-btn');
-  btn.disabled = true; btn.textContent = 'Signing in…';
-
-  const { error } = await db.auth.verifyOtp({ email: otpEmail, token, type: 'email' });
-  btn.disabled = false; btn.textContent = 'Sign In';
-
-  if (error) { showLoginError('Invalid or expired code. Please try again.'); return; }
-}
-
-function backToEmail() {
-  document.getElementById('step-otp').style.display = 'none';
-  document.getElementById('step-email').style.display = 'block';
-  document.getElementById('login-subtitle').textContent = 'Sign in to access your expenses and hours';
-  document.getElementById('login-otp').value = '';
-  clearLoginError();
-}
-
-function showLoginError(msg) {
-  const el = document.getElementById('login-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function clearLoginError() {
-  document.getElementById('login-error').style.display = 'none';
-}
-
-async function signOut() {
-  await db.auth.signOut();
-  currentUser = null;
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  backToEmail();
-}
-
-// Check for existing session on load
-db.auth.getSession().then(({ data: { session } }) => {
-  if (session?.user) {
-    currentUser = session.user;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    initApp();
-  }
-});
-
-// Listen for auth state changes (handles magic link redirect)
-db.auth.onAuthStateChange((event, session) => {
-  if (session?.user) {
-    currentUser = session.user;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    initApp();
-  } else if (event === 'SIGNED_OUT') {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
-  }
-});
-
-
-// Allow Enter key on email field
-document.getElementById('login-email').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') sendOTP();
-});
+initApp();
 
 // ── App init ──────────────────────────────────────────────────────
 function initApp() {
@@ -1324,7 +1088,7 @@ async function saveExpense() {
   if (editId) {
     ({ error } = await db.from('entries').update({ date, amount: Number(amount), description, category, notes }).eq('id', editId));
   } else {
-    ({ error } = await db.from('entries').insert({ user_id: currentUser.id, type: 'expense', date, amount: Number(amount), description, category, notes }));
+    ({ error } = await db.from('entries').insert({ type: 'expense', date, amount: Number(amount), description, category, notes }));
   }
 
   btn.disabled = false; btn.textContent = 'Save Expense';
@@ -1363,7 +1127,7 @@ async function saveHours() {
   if (editId) {
     ({ error } = await db.from('entries').update({ date, hours: Number(hours), description, notes }).eq('id', editId));
   } else {
-    ({ error } = await db.from('entries').insert({ user_id: currentUser.id, type: 'hours', date, hours: Number(hours), description, notes }));
+    ({ error } = await db.from('entries').insert({ type: 'hours', date, hours: Number(hours), description, notes }));
   }
 
   btn.disabled = false; btn.textContent = 'Save Hours';
@@ -1587,18 +1351,17 @@ let instructors = [];
 let subRequests = [];
 
 async function saveInstructors() {
-  if (!currentUser) return;
   await db.from('sub_instructors').upsert(
-    instructors.map(i => ({ id: i.id, user_id: currentUser.id, name: i.name, categories: i.categories || [] })),
+    instructors.map(i => ({ id: i.id, name: i.name, categories: i.categories || [] })),
     { onConflict: 'id' }
   );
 }
 
 async function saveSubRequests() {
-  if (!currentUser || !subRequests.length) return;
+  if (!subRequests.length) return;
   await db.from('sub_requests').upsert(
     subRequests.map(r => ({
-      id: r.id, user_id: currentUser.id,
+      id: r.id,
       date: r.date, time: r.time, location: r.location,
       class_type: r.classType, original_instructor: r.originalInstructor,
       crossed_out: r.crossedOut, statuses: r.statuses,
@@ -1609,10 +1372,9 @@ async function saveSubRequests() {
 }
 
 async function loadSubData() {
-  if (!currentUser) return;
   const [{ data: dbInst }, { data: dbReqs }] = await Promise.all([
-    db.from('sub_instructors').select('*').eq('user_id', currentUser.id),
-    db.from('sub_requests').select('*').eq('user_id', currentUser.id)
+    db.from('sub_instructors').select('*'),
+    db.from('sub_requests').select('*')
   ]);
 
   if (dbInst && dbInst.length > 0) {
@@ -1659,9 +1421,7 @@ function addInstructor() {
 async function removeInstructor(id) {
   instructors = instructors.filter(i => i.id !== id);
   subRequests.forEach(r => { delete r.statuses[id]; r.crossedOut = r.crossedOut.filter(x => x !== id); });
-  if (currentUser) {
-    await db.from('sub_instructors').delete().eq('id', id).eq('user_id', currentUser.id);
-  }
+  await db.from('sub_instructors').delete().eq('id', id);
   saveSubRequests();
   renderSubView();
 }
@@ -1699,9 +1459,7 @@ function newSubRequest() {
 
 async function deleteSubRequest(id) {
   subRequests = subRequests.filter(r => r.id !== id);
-  if (currentUser) {
-    await db.from('sub_requests').delete().eq('id', id).eq('user_id', currentUser.id);
-  }
+  await db.from('sub_requests').delete().eq('id', id);
   renderSubView();
 }
 
