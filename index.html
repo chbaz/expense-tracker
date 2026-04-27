@@ -1898,30 +1898,49 @@ async function runSync() {
 
   try {
     const res = await fetch(SYNC_URL, { method: 'POST' });
-    const data = await res.json();
-    document.getElementById('sync-progress').style.display = 'none';
-
     if (!res.ok) {
-      toast(data.error || 'Sync failed');
-    } else {
-      document.getElementById('sr-synced').textContent = data.synced;
-      document.getElementById('sr-skipped').textContent = data.skipped;
-      document.getElementById('sr-failed').textContent = data.failed;
-      document.getElementById('sr-total').textContent = data.total;
-      const errEl = document.getElementById('sr-error');
-      if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; }
-      else errEl.style.display = 'none';
-      document.getElementById('sync-result').style.display = '';
-      toast('Sync complete!');
-      loadSyncDashboard();
-      loadMembers(0);
+      const data = await res.json().catch(() => ({}));
+      document.getElementById('sync-progress').style.display = 'none';
+      toast(data.error || 'Sync failed to start');
+      btn.disabled = false; btn.textContent = '▶ Run Sync';
+      return;
     }
+
+    // POST returns immediately with { status: "started" } — poll until done
+    await pollUntilSyncDone();
   } catch(e) {
     document.getElementById('sync-progress').style.display = 'none';
     toast('Sync request failed — check connection.');
+    btn.disabled = false; btn.textContent = '▶ Run Sync';
   }
+}
 
+async function pollUntilSyncDone() {
+  const btn = document.getElementById('run-sync-btn');
+  const maxAttempts = 40; // ~2 min at 3s intervals
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const res = await fetch(SYNC_URL);
+      const data = await res.json();
+      if (!data.is_syncing) {
+        document.getElementById('sync-progress').style.display = 'none';
+        document.getElementById('sync-result').style.display = '';
+        toast('Sync complete!');
+        loadSyncDashboard();
+        loadMembers(0);
+        btn.disabled = false; btn.textContent = '▶ Run Sync';
+        return;
+      }
+    } catch(e) {
+      // network blip — keep polling
+    }
+  }
+  // timed out
+  document.getElementById('sync-progress').style.display = 'none';
+  toast('Sync is taking a long time — check history in a moment.');
   btn.disabled = false; btn.textContent = '▶ Run Sync';
+  loadSyncDashboard();
 }
 
 let _membersDebounce;
