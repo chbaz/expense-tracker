@@ -494,7 +494,7 @@ textarea { resize: vertical; min-height: 72px; }
   font-size:0.75rem; font-weight:700; white-space:nowrap;
 }
 .status-badge.active        { background:#e4f4e8; color:#2d7a3a; }
-.status-badge.recentlyLapsed{ background:#fdebd8; color:#b05a10; }
+.status-badge.recently_lapsed{ background:#fdebd8; color:#b05a10; }
 .status-badge.lapsed        { background:#fef9e0; color:#8a6c00; }
 .status-badge.inactive      { background:#f0f0f0; color:#666; }
 
@@ -804,6 +804,14 @@ textarea { resize: vertical; min-height: 72px; }
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
         </div>
+        <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);">
+          <button class="btn" onclick="downloadLeadsCSV()" id="dl-leads-btn" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #7e57c2;color:#7e57c2;background:#f5f0ff;">
+            <span style="font-weight:700;">Non-Client Leads</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">Lapsed + Inactive — not currently active</span>
+            <span id="dl-count-leads" style="font-size:1.2rem;font-weight:700;">—</span>
+            <span style="font-size:0.78rem;">⬇ Download CSV</span>
+          </button>
+        </div>
       </div>
 
       <!-- Member Table -->
@@ -813,7 +821,7 @@ textarea { resize: vertical; min-height: 72px; }
           <select id="sync-status-filter" onchange="loadMembers(0)" style="width:auto;">
             <option value="">All statuses</option>
             <option value="active">Active</option>
-            <option value="recentlyLapsed">Recently Lapsed</option>
+            <option value="recently_lapsed">Recently Lapsed</option>
             <option value="lapsed">Lapsed</option>
             <option value="inactive">Inactive</option>
           </select>
@@ -826,7 +834,10 @@ textarea { resize: vertical; min-height: 72px; }
 
       <!-- Sync History -->
       <div class="card" style="padding:0;">
-        <div style="padding:1rem 1.25rem;font-weight:700;border-bottom:1px solid var(--border);">Sync History</div>
+        <div style="padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+          <span style="font-weight:700;">Sync History</span>
+          <button class="btn-sm" onclick="clearSyncHistory()" style="color:var(--red);border-color:var(--red);">Clear History</button>
+        </div>
         <div id="sync-history" style="padding:1rem 1.25rem;color:var(--text-muted);font-size:0.9rem;">No sync history yet.</div>
       </div>
     </div>
@@ -935,7 +946,6 @@ const SUPABASE_URL = 'https://apehpupzkzpoedvswiga.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZWhwdXB6a3pwb2VkdnN3aWdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NDgwNzcsImV4cCI6MjA5MTUyNDA3N30.HEy5gRawDQrAHp-dtiMdeKgokSnytW7VnqO2xrwAo1w';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SYNC_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/sync-contacts';
-const MEMBERS_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/get-members';
 
 // ── App init ──────────────────────────────────────────────────────
 function initApp() {
@@ -1871,7 +1881,7 @@ let syncMemberPage = 0;
 let syncMemberTotal = 0;
 
 function statusBadge(s) {
-  const labels = { active:'Active', recentlyLapsed:'Recently Lapsed', lapsed:'Lapsed', inactive:'Inactive' };
+  const labels = { active:'Active', recently_lapsed:'Recently Lapsed', lapsed:'Lapsed', inactive:'Inactive' };
   return `<span class="status-badge ${s}">${labels[s]||s}</span>`;
 }
 
@@ -1893,6 +1903,41 @@ async function refreshTagCounts() {
     console.error('refreshTagCounts', e);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh Counts'; }
+  }
+}
+
+async function downloadLeadsCSV() {
+  const btn = document.getElementById('dl-leads-btn');
+  const orig = btn.querySelector('span:last-child').textContent;
+  btn.querySelector('span:last-child').textContent = '⏳ Loading…';
+  btn.disabled = true;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${SYNC_URL}?segment=lapsed`).then(r => r.json()),
+      fetch(`${SYNC_URL}?segment=inactive`).then(r => r.json())
+    ]);
+    const contacts = [...(r1.contacts ?? []), ...(r2.contacts ?? [])];
+    if (!contacts.length) { toast('No leads found — run a sync first.'); return; }
+    const rows = [['Email', 'First Name', 'Last Name']];
+    for (const c of contacts) {
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '']);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Non_Client_Leads_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${contacts.length} leads`);
+  } catch(e) {
+    toast('Download failed — check connection.');
+  } finally {
+    btn.querySelector('span:last-child').textContent = orig;
+    btn.disabled = false;
   }
 }
 
@@ -1934,11 +1979,13 @@ async function loadSyncDashboard() {
     const res = await fetch(SYNC_URL);
     const data = await res.json();
     document.getElementById('sc-active').textContent = data.counts.active ?? '—';
-    document.getElementById('sc-recentlyLapsed').textContent = data.counts.recentlyLapsed ?? '—';
+    document.getElementById('sc-recentlyLapsed').textContent = data.counts.recently_lapsed ?? '—';
     document.getElementById('dl-count-active').textContent = data.counts.active > 0 ? data.counts.active : '—';
-    document.getElementById('dl-count-recently-lapsed').textContent = data.counts.recentlyLapsed > 0 ? data.counts.recentlyLapsed : '—';
+    document.getElementById('dl-count-recently-lapsed').textContent = data.counts.recently_lapsed > 0 ? data.counts.recently_lapsed : '—';
     document.getElementById('dl-count-lapsed').textContent = data.counts.lapsed > 0 ? data.counts.lapsed : '—';
     document.getElementById('dl-count-inactive').textContent = data.counts.inactive > 0 ? data.counts.inactive : '—';
+    const leadsCount = (data.counts.lapsed ?? 0) + (data.counts.inactive ?? 0);
+    document.getElementById('dl-count-leads').textContent = leadsCount > 0 ? leadsCount : '—';
     document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
     document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
     if (data.tagCounts) populateTagCounts(data.tagCounts);
@@ -1996,6 +2043,13 @@ async function pollUntilSyncDone() {
         loadSyncDashboard();
         loadMembers(0);
         btn.disabled = false; btn.textContent = '▶ Run Sync';
+        if (Notification.permission === 'granted') {
+          new Notification('Studio Tracker', { body: 'Momence sync complete!', icon: './icons/icon-192.png' });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(p => {
+            if (p === 'granted') new Notification('Studio Tracker', { body: 'Momence sync complete!', icon: './icons/icon-192.png' });
+          });
+        }
         return;
       }
     } catch(e) {
@@ -2018,15 +2072,15 @@ function debouncedLoadMembers() {
 async function loadMembers(page = 0) {
   syncMemberPage = page;
   const search = document.getElementById('sync-search')?.value?.trim() ?? '';
-  const status = document.getElementById('sync-status-filter')?.value ?? '';
-  const params = new URLSearchParams({ page });
+  const seg = document.getElementById('sync-status-filter')?.value ?? '';
+  const params = new URLSearchParams({ members: '1', page });
   if (search) params.set('search', search);
-  if (status) params.set('status', status);
+  if (seg) params.set('seg', seg);
 
   document.getElementById('sync-member-table').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);"><div class="spinner"><div class="spin"></div> Loading…</div></div>';
 
   try {
-    const res = await fetch(`${MEMBERS_URL}?${params}`);
+    const res = await fetch(`${SYNC_URL}?${params}`);
     const data = await res.json();
     syncMemberTotal = data.total ?? 0;
     renderMembersTable(data.members ?? []);
@@ -2044,18 +2098,18 @@ function renderMembersTable(members) {
   }
   el.innerHTML = `<table class="sync-table">
     <thead><tr>
-      <th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Last Visit</th><th>Home Studio</th><th>Source</th><th>Tags</th>
+      <th>Name</th><th>Email</th><th>Phone</th><th>Segment</th><th>Last Seen</th>
     </tr></thead>
-    <tbody>${members.map(m => `<tr>
+    <tbody>${members.map(m => {
+      const lastSeen = m.last_seen ? new Date(m.last_seen).toLocaleDateString() : '—';
+      return `<tr>
       <td style="white-space:nowrap;">${m.first_name||''} ${m.last_name||''}</td>
       <td style="font-size:0.8rem;">${m.email||''}</td>
       <td style="white-space:nowrap;font-size:0.8rem;">${m.phone||''}</td>
-      <td>${statusBadge(m.membership_status)}</td>
-      <td style="white-space:nowrap;font-size:0.8rem;">${m.last_visit_date||''}</td>
-      <td style="font-size:0.8rem;">${m.home_studio||''}</td>
-      <td style="font-size:0.8rem;">${m.source||''}</td>
-      <td style="font-size:0.78rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.tags||''}</td>
-    </tr>`).join('')}</tbody>
+      <td>${statusBadge(m.segment)}</td>
+      <td style="white-space:nowrap;font-size:0.8rem;">${lastSeen}</td>
+    </tr>`;
+    }).join('')}</tbody>
   </table>`;
 }
 
@@ -2088,6 +2142,21 @@ function renderSyncHistory(logs) {
       ${log.error ? `<span style="color:var(--red);font-size:0.78rem;">${log.error}</span>` : ''}
     </div>`;
   }).join('');
+}
+
+async function clearSyncHistory() {
+  if (!confirm('Clear all sync history? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`${SYNC_URL}?clear_history=1`, { method: 'DELETE' });
+    if (res.ok) {
+      document.getElementById('sync-history').innerHTML = '<span style="color:var(--text-muted);">No sync history yet.</span>';
+      toast('Sync history cleared.');
+    } else {
+      toast('Failed to clear history.');
+    }
+  } catch(e) {
+    toast('Failed to clear history.');
+  }
 }
 
 initApp();
