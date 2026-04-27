@@ -1875,7 +1875,10 @@ function reqCard(req) {
 
 function renderSubRequests() {
   const el = document.getElementById('sub-requests-list');
-  const active = [...subRequests].filter(r => !r.completed).sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  const active = [...subRequests].filter(r => !r.completed).sort((a,b) => {
+    const d = (a.date||'').localeCompare(b.date||'');
+    return d !== 0 ? d : (a.time||'').localeCompare(b.time||'');
+  });
   const done = [...subRequests].filter(r => r.completed).sort((a,b) => (b.date||'').localeCompare(a.date||''));
 
   let html = '';
