@@ -885,6 +885,30 @@ textarea { resize: vertical; min-height: 72px; }
         </div>
       </div>
 
+      <!-- Tag Counts -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;">Momence Tag Counts</div>
+        <button id="refresh-tags-btn" class="btn" style="font-size:0.8rem;padding:0.25rem 0.75rem;" onclick="refreshTagCounts()">↻ Refresh Counts</button>
+      </div>
+      <div class="stats-grid" id="sync-tags-grid">
+        <div class="stat-card" style="border-left:4px solid var(--green);">
+          <div class="stat-label">Has Active Membership</div>
+          <div class="stat-value" id="tc-has-active" style="color:var(--green);">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #5b9bd5;">
+          <div class="stat-label">Active 30d</div>
+          <div class="stat-value" id="tc-active-30d" style="color:#5b9bd5;">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #7e57c2;">
+          <div class="stat-label">Active 60d</div>
+          <div class="stat-value" id="tc-active-60d" style="color:#7e57c2;">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #e07b30;">
+          <div class="stat-label">Active 12m</div>
+          <div class="stat-value" id="tc-active-12m" style="color:#e07b30;">—</div>
+        </div>
+      </div>
+
       <!-- Run Sync -->
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
         <div>
@@ -2073,6 +2097,27 @@ function statusBadge(s) {
   return `<span class="status-badge ${s}">${labels[s]||s}</span>`;
 }
 
+function populateTagCounts(tc) {
+  document.getElementById('tc-has-active').textContent = tc['Has Active Membership'] ?? '—';
+  document.getElementById('tc-active-30d').textContent = tc['Active 30d'] ?? '—';
+  document.getElementById('tc-active-60d').textContent = tc['Active 60d'] ?? '—';
+  document.getElementById('tc-active-12m').textContent = tc['Active 12m'] ?? '—';
+}
+
+async function refreshTagCounts() {
+  const btn = document.getElementById('refresh-tags-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading…'; }
+  try {
+    const res = await fetch(SYNC_URL);
+    const data = await res.json();
+    if (data.tagCounts) populateTagCounts(data.tagCounts);
+  } catch(e) {
+    console.error('refreshTagCounts', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh Counts'; }
+  }
+}
+
 async function loadSyncDashboard() {
   try {
     const res = await fetch(SYNC_URL);
@@ -2081,6 +2126,7 @@ async function loadSyncDashboard() {
     document.getElementById('sc-recentlyLapsed').textContent = data.counts.recentlyLapsed ?? '—';
     document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
     document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
+    if (data.tagCounts) populateTagCounts(data.tagCounts);
     renderSyncHistory(data.history ?? []);
     if (data.counts.total > 0) loadMembers(0);
   } catch(e) {
