@@ -1953,7 +1953,6 @@ async function runSync() {
   const btn = document.getElementById('run-sync-btn');
   btn.disabled = true; btn.textContent = '⏳ Syncing…';
   document.getElementById('sync-progress').style.display = '';
-  document.getElementById('sync-result').style.display = 'none';
 
   try {
     const res = await fetch(SYNC_URL, { method: 'POST' });
@@ -1993,7 +1992,6 @@ async function pollUntilSyncDone() {
       const data = await res.json();
       if (!data.is_syncing) {
         document.getElementById('sync-progress').style.display = 'none';
-        document.getElementById('sync-result').style.display = '';
         toast('Sync complete!');
         loadSyncDashboard();
         loadMembers(0);
