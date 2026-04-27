@@ -719,6 +719,10 @@ textarea { resize: vertical; min-height: 72px; }
     <div id="view-sync" class="view">
       <!-- Status Cards -->
       <div class="stats-grid" id="sync-counts-grid">
+        <div class="stat-card" style="border-left:4px solid #2c6fad;">
+          <div class="stat-label">Total Customers</div>
+          <div class="stat-value" id="sc-total" style="color:#2c6fad;">—</div>
+        </div>
         <div class="stat-card" style="border-left:4px solid var(--green);">
           <div class="stat-label">Active</div>
           <div class="stat-value" id="sc-active" style="color:var(--green);">—</div>
@@ -734,6 +738,10 @@ textarea { resize: vertical; min-height: 72px; }
         <div class="stat-card" style="border-left:4px solid #999;">
           <div class="stat-label">Inactive</div>
           <div class="stat-value" id="sc-inactive" style="color:#999;">—</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #7e57c2;">
+          <div class="stat-label">Leads</div>
+          <div class="stat-value" id="sc-leads" style="color:#7e57c2;">—</div>
         </div>
       </div>
 
@@ -806,8 +814,8 @@ textarea { resize: vertical; min-height: 72px; }
         </div>
         <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);">
           <button class="btn" onclick="downloadLeadsCSV()" id="dl-leads-btn" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #7e57c2;color:#7e57c2;background:#f5f0ff;">
-            <span style="font-weight:700;">Non-Client Leads</span>
-            <span style="font-size:0.78rem;color:var(--text-muted);">Lapsed + Inactive — not currently active</span>
+            <span style="font-weight:700;">Marketing Leads</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">From Momence Marketing › Lead Management</span>
             <span id="dl-count-leads" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
@@ -1912,22 +1920,20 @@ async function downloadLeadsCSV() {
   btn.querySelector('span:last-child').textContent = '⏳ Loading…';
   btn.disabled = true;
   try {
-    const [r1, r2] = await Promise.all([
-      fetch(`${SYNC_URL}?segment=lapsed`).then(r => r.json()),
-      fetch(`${SYNC_URL}?segment=inactive`).then(r => r.json())
-    ]);
-    const contacts = [...(r1.contacts ?? []), ...(r2.contacts ?? [])];
+    const res = await fetch(`${SYNC_URL}?leads_csv=1`);
+    const data = await res.json();
+    const contacts = data.contacts ?? [];
     if (!contacts.length) { toast('No leads found — run a sync first.'); return; }
-    const rows = [['Email', 'First Name', 'Last Name']];
+    const rows = [['Email', 'First Name', 'Last Name', 'Phone']];
     for (const c of contacts) {
-      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '']);
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '', c.phone ?? '']);
     }
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Non_Client_Leads_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `Marketing_Leads_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1978,16 +1984,17 @@ async function loadSyncDashboard() {
   try {
     const res = await fetch(SYNC_URL);
     const data = await res.json();
+    document.getElementById('sc-total').textContent = data.counts.total ?? '—';
     document.getElementById('sc-active').textContent = data.counts.active ?? '—';
     document.getElementById('sc-recentlyLapsed').textContent = data.counts.recently_lapsed ?? '—';
+    document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
+    document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
+    document.getElementById('sc-leads').textContent = data.counts.leads ?? '—';
     document.getElementById('dl-count-active').textContent = data.counts.active > 0 ? data.counts.active : '—';
     document.getElementById('dl-count-recently-lapsed').textContent = data.counts.recently_lapsed > 0 ? data.counts.recently_lapsed : '—';
     document.getElementById('dl-count-lapsed').textContent = data.counts.lapsed > 0 ? data.counts.lapsed : '—';
     document.getElementById('dl-count-inactive').textContent = data.counts.inactive > 0 ? data.counts.inactive : '—';
-    const leadsCount = (data.counts.lapsed ?? 0) + (data.counts.inactive ?? 0);
-    document.getElementById('dl-count-leads').textContent = leadsCount > 0 ? leadsCount : '—';
-    document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
-    document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
+    document.getElementById('dl-count-leads').textContent = data.counts.leads > 0 ? data.counts.leads : '—';
     if (data.tagCounts) populateTagCounts(data.tagCounts);
     renderSyncHistory(data.history ?? []);
     if (data.counts.total > 0) loadMembers(0);
