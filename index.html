@@ -772,7 +772,7 @@ textarea { resize: vertical; min-height: 72px; }
 
       <!-- Progress / Result -->
       <div id="sync-progress" style="display:none;" class="card" style="text-align:center;">
-        <div class="spinner"><div class="spin"></div> Syncing contacts… this may take a minute.</div>
+        <div class="spinner"><div class="spin"></div> <span id="sync-progress-msg">Syncing contacts… this may take a minute.</span></div>
       </div>
       <div id="sync-result" style="display:none;" class="card">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;">
@@ -1917,9 +1917,18 @@ async function runSync() {
 
 async function pollUntilSyncDone() {
   const btn = document.getElementById('run-sync-btn');
+  const msgEl = document.getElementById('sync-progress-msg');
+  const start = Date.now();
   const maxAttempts = 40; // ~2 min at 3s intervals
+
+  function elapsed() {
+    const s = Math.floor((Date.now() - start) / 1000);
+    return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+  }
+
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000));
+    if (msgEl) msgEl.textContent = `Syncing contacts… ${elapsed()} elapsed`;
     try {
       const res = await fetch(SYNC_URL);
       const data = await res.json();
