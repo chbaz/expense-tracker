@@ -764,24 +764,46 @@ textarea { resize: vertical; min-height: 72px; }
       <!-- Run Sync -->
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
         <div>
-          <div style="font-weight:700;font-size:1.05rem;">Momence → Brevo Sync</div>
+          <div style="font-weight:700;font-size:1.05rem;">Momence Sync</div>
           <div id="sync-last-run" style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;"></div>
         </div>
         <button class="btn btn-primary" id="run-sync-btn" onclick="runSync()">▶ Run Sync</button>
       </div>
 
-      <!-- Progress / Result -->
-      <div id="sync-progress" style="display:none;" class="card" style="text-align:center;">
+      <!-- Progress -->
+      <div id="sync-progress" style="display:none;" class="card">
         <div class="spinner"><div class="spin"></div> <span id="sync-progress-msg">Syncing contacts… this may take a minute.</span></div>
       </div>
-      <div id="sync-result" style="display:none;" class="card">
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center;">
-          <div><div class="stat-label">Synced</div><div style="font-size:1.6rem;font-weight:700;color:var(--green);" id="sr-synced">—</div></div>
-          <div><div class="stat-label">Skipped</div><div style="font-size:1.6rem;font-weight:700;color:var(--text-muted);" id="sr-skipped">—</div></div>
-          <div><div class="stat-label">Failed</div><div style="font-size:1.6rem;font-weight:700;color:var(--red);" id="sr-failed">—</div></div>
-          <div><div class="stat-label">Total</div><div style="font-size:1.6rem;font-weight:700;" id="sr-total">—</div></div>
+
+      <!-- Download CSVs -->
+      <div class="card" style="padding:0;">
+        <div style="padding:1rem 1.25rem;font-weight:700;border-bottom:1px solid var(--border);">Download for Brevo Import</div>
+        <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;" id="csv-download-grid">
+          <button class="btn" onclick="downloadSegmentCSV('active','Active')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);">
+            <span style="font-weight:700;">Active</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">Has Active Membership or Active 30d</span>
+            <span id="dl-count-active" style="font-size:1.2rem;font-weight:700;">—</span>
+            <span style="font-size:0.78rem;">⬇ Download CSV</span>
+          </button>
+          <button class="btn" onclick="downloadSegmentCSV('recently_lapsed','Recently_Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;">
+            <span style="font-weight:700;">Recently Lapsed</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">Active 60d, not in past 30d</span>
+            <span id="dl-count-recently-lapsed" style="font-size:1.2rem;font-weight:700;">—</span>
+            <span style="font-size:0.78rem;">⬇ Download CSV</span>
+          </button>
+          <button class="btn" onclick="downloadSegmentCSV('lapsed','Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;">
+            <span style="font-weight:700;">Lapsed</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">Active 12m, not in past 60d</span>
+            <span id="dl-count-lapsed" style="font-size:1.2rem;font-weight:700;">—</span>
+            <span style="font-size:0.78rem;">⬇ Download CSV</span>
+          </button>
+          <button class="btn" onclick="downloadSegmentCSV('inactive','Inactive')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #999;color:#666;background:#f5f5f5;">
+            <span style="font-weight:700;">Inactive</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">No activity in past 12m</span>
+            <span id="dl-count-inactive" style="font-size:1.2rem;font-weight:700;">—</span>
+            <span style="font-size:0.78rem;">⬇ Download CSV</span>
+          </button>
         </div>
-        <div id="sr-error" style="margin-top:0.75rem;color:var(--red);font-size:0.85rem;display:none;"></div>
       </div>
 
       <!-- Member Table -->
@@ -1874,12 +1896,49 @@ async function refreshTagCounts() {
   }
 }
 
+async function downloadSegmentCSV(segment, filename) {
+  const btn = event.currentTarget;
+  const orig = btn.querySelector('span:last-child').textContent;
+  btn.querySelector('span:last-child').textContent = '⏳ Loading…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${SYNC_URL}?segment=${segment}`);
+    const data = await res.json();
+    const contacts = data.contacts ?? [];
+    if (!contacts.length) { toast('No contacts in this segment yet — run a sync first.'); return; }
+    const rows = [['Email', 'First Name', 'Last Name']];
+    for (const c of contacts) {
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '']);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${contacts.length} contacts`);
+  } catch(e) {
+    toast('Download failed — check connection.');
+  } finally {
+    btn.querySelector('span:last-child').textContent = orig;
+    btn.disabled = false;
+  }
+}
+
 async function loadSyncDashboard() {
   try {
     const res = await fetch(SYNC_URL);
     const data = await res.json();
     document.getElementById('sc-active').textContent = data.counts.active ?? '—';
     document.getElementById('sc-recentlyLapsed').textContent = data.counts.recentlyLapsed ?? '—';
+    document.getElementById('dl-count-active').textContent = data.counts.active > 0 ? data.counts.active : '—';
+    document.getElementById('dl-count-recently-lapsed').textContent = data.counts.recentlyLapsed > 0 ? data.counts.recentlyLapsed : '—';
+    document.getElementById('dl-count-lapsed').textContent = data.counts.lapsed > 0 ? data.counts.lapsed : '—';
+    document.getElementById('dl-count-inactive').textContent = data.counts.inactive > 0 ? data.counts.inactive : '—';
     document.getElementById('sc-lapsed').textContent = data.counts.lapsed ?? '—';
     document.getElementById('sc-inactive').textContent = data.counts.inactive ?? '—';
     if (data.tagCounts) populateTagCounts(data.tagCounts);
