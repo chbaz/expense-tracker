@@ -915,8 +915,6 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SYNC_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/sync-contacts';
 const MEMBERS_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/get-members';
 
-initApp();
-
 // ── App init ──────────────────────────────────────────────────────
 function initApp() {
   document.getElementById('exp-date').value = today();
@@ -2006,6 +2004,8 @@ function renderSyncHistory(logs) {
     </div>`;
   }).join('');
 }
+
+initApp();
 </script>
 </body>
 </html>
