@@ -1957,9 +1957,9 @@ async function downloadSegmentCSV(segment, filename) {
     const data = await res.json();
     const contacts = data.contacts ?? [];
     if (!contacts.length) { toast('No contacts in this segment yet — run a sync first.'); return; }
-    const rows = [['Email', 'First Name', 'Last Name']];
+    const rows = [['Email', 'First Name', 'Last Name', 'Phone']];
     for (const c of contacts) {
-      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '']);
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '', c.phone ?? '']);
     }
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
