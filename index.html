@@ -812,13 +812,19 @@ textarea { resize: vertical; min-height: 72px; }
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
         </div>
-        <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);">
-          <button class="btn" onclick="downloadLeadsCSV()" id="dl-leads-btn" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #7e57c2;color:#7e57c2;background:#f5f0ff;">
+        <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.75rem;align-items:stretch;">
+          <button class="btn" onclick="downloadLeadsCSV()" id="dl-leads-btn" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #7e57c2;color:#7e57c2;background:#f5f0ff;">
             <span style="font-weight:700;">Marketing Leads</span>
-            <span style="font-size:0.78rem;color:var(--text-muted);">From Momence Marketing › Lead Management</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">From Momence Lead Management</span>
             <span id="dl-count-leads" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
+          <label class="btn" id="upload-leads-label" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.25rem;padding:0.9rem;border:1px dashed #7e57c2;color:#7e57c2;background:#f5f0ff;cursor:pointer;min-width:120px;">
+            <span style="font-size:1.1rem;">⬆</span>
+            <span style="font-weight:700;font-size:0.85rem;">Upload CSV</span>
+            <span style="font-size:0.72rem;color:var(--text-muted);">Momence export</span>
+            <input type="file" accept=".csv" style="display:none;" onchange="uploadLeadsCSV(this)">
+          </label>
         </div>
       </div>
 
@@ -1914,6 +1920,78 @@ async function refreshTagCounts() {
   }
 }
 
+async function uploadLeadsCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('upload-leads-label');
+  label.style.opacity = '0.6';
+  const origText = label.querySelector('span:nth-child(2)').textContent;
+  label.querySelector('span:nth-child(2)').textContent = 'Parsing…';
+
+  try {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { toast('CSV appears empty.'); return; }
+
+    // Parse header — find column indices flexibly
+    const header = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+    const col = (names) => names.map(n => header.findIndex(h => h.includes(n))).find(i => i >= 0) ?? -1;
+    const iType      = col(['type']);
+    const iFirst     = col(['first name', 'firstname', 'first']);
+    const iLast      = col(['last name', 'lastname', 'last']);
+    const iEmail     = col(['email']);
+    const iJoin      = col(['join date', 'joindate', 'created', 'joined']);
+
+    const parseRow = (line) => {
+      // Handle quoted fields with commas inside
+      const fields = [];
+      let cur = '', inQ = false;
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+      fields.push(cur.trim());
+      return fields;
+    };
+
+    const leads = [];
+    for (let i = 1; i < lines.length; i++) {
+      const fields = parseRow(lines[i]);
+      const type = iType >= 0 ? fields[iType]?.replace(/^"|"$/g, '').trim().toLowerCase() : 'lead';
+      if (iType >= 0 && type !== 'lead') continue;
+      const email = fields[iEmail]?.replace(/^"|"$/g, '').trim().toLowerCase();
+      if (!email || !email.includes('@')) continue;
+      leads.push({
+        email,
+        first_name: iFirst >= 0 ? fields[iFirst]?.replace(/^"|"$/g, '').trim() : '',
+        last_name:  iLast  >= 0 ? fields[iLast]?.replace(/^"|"$/g, '').trim()  : '',
+        join_date:  iJoin  >= 0 ? fields[iJoin]?.replace(/^"|"$/g, '').trim()  : null,
+        source: 'upload',
+      });
+    }
+
+    if (!leads.length) { toast('No leads found — check the file has a Type column with "Lead" rows, or an Email column.'); return; }
+
+    label.querySelector('span:nth-child(2)').textContent = 'Uploading…';
+    const res = await fetch(`${SYNC_URL}?import_leads=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leads }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Upload failed.'); return; }
+    toast(`Imported ${data.imported} leads`);
+    loadSyncDashboard();
+  } catch(e) {
+    toast('Upload failed — ' + e.message);
+  } finally {
+    label.querySelector('span:nth-child(2)').textContent = origText;
+    label.style.opacity = '1';
+    input.value = '';
+  }
+}
+
 async function downloadLeadsCSV() {
   const btn = document.getElementById('dl-leads-btn');
   const orig = btn.querySelector('span:last-child').textContent;
@@ -1923,10 +2001,10 @@ async function downloadLeadsCSV() {
     const res = await fetch(`${SYNC_URL}?leads_csv=1`);
     const data = await res.json();
     const contacts = data.contacts ?? [];
-    if (!contacts.length) { toast('No leads found — run a sync first.'); return; }
-    const rows = [['Email', 'First Name', 'Last Name', 'Phone']];
+    if (!contacts.length) { toast('No leads found — upload a CSV first.'); return; }
+    const rows = [['Email', 'First Name', 'Last Name', 'Phone', 'Join Date']];
     for (const c of contacts) {
-      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '', c.phone ?? '']);
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '', c.phone ?? '', c.join_date ?? '']);
     }
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
