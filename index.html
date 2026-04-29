@@ -2287,19 +2287,37 @@ function renderPagination(page, pageSize) {
 function renderSyncHistory(logs) {
   const el = document.getElementById('sync-history');
   if (!logs.length) { el.innerHTML = '<span style="color:var(--text-muted);">No sync history yet.</span>'; return; }
-  el.innerHTML = logs.map(log => {
+  el.innerHTML = logs.map((log, i) => {
     const ts = log.started_at ? new Date(log.started_at).toLocaleString() : '—';
     const dur = log.started_at && log.finished_at
       ? `${Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s`
       : log.finished_at ? '' : '<span style="color:var(--accent);">running…</span>';
-    return `<div class="history-row">
+    const counts = log.counts || {};
+    const isTagPush = counts.type === 'tag_push';
+    const label = isTagPush
+      ? `<span style="font-size:0.78rem;font-weight:600;color:var(--text-muted);">Tag push · ${counts.segment || ''}</span>`
+      : '';
+    const failures = counts.failures || [];
+    const failureId = `failures-${log.id || i}`;
+    const failureDetails = failures.length ? `
+      <div style="width:100%;margin-top:0.4rem;">
+        <button class="btn-sm" style="font-size:0.75rem;padding:2px 8px;" onclick="document.getElementById('${failureId}').style.display=document.getElementById('${failureId}').style.display==='none'?'block':'none'">
+          Show ${failures.length} failure${failures.length===1?'':'s'}
+        </button>
+        <div id="${failureId}" style="display:none;margin-top:0.5rem;background:var(--red-light);border-radius:var(--radius-sm);padding:0.6rem 0.75rem;font-size:0.78rem;line-height:1.8;">
+          ${failures.map(f => `<div><span style="font-weight:600;">${esc(f.email)}</span> — <span style="color:var(--red);">${esc(f.reason)}</span></div>`).join('')}
+        </div>
+      </div>` : '';
+    return `<div class="history-row" style="flex-wrap:wrap;">
       <span style="color:var(--text-muted);font-size:0.8rem;white-space:nowrap;">${ts}</span>
-      ${log.synced != null ? `<span class="history-pill synced">${log.synced} synced</span>` : ''}
-      ${log.skipped != null ? `<span class="history-pill skipped">${log.skipped} skipped</span>` : ''}
+      ${label}
+      ${log.synced != null ? `<span class="history-pill synced">${log.synced} ${isTagPush ? 'pushed' : 'synced'}</span>` : ''}
+      ${log.skipped != null && !isTagPush ? `<span class="history-pill skipped">${log.skipped} skipped</span>` : ''}
       ${log.failed ? `<span class="history-pill failed">${log.failed} failed</span>` : ''}
       ${log.total != null ? `<span style="font-size:0.8rem;color:var(--text-muted);">of ${log.total}</span>` : ''}
       ${dur ? `<span style="font-size:0.78rem;color:var(--text-muted);">${dur}</span>` : ''}
-      ${log.error ? `<span style="color:var(--red);font-size:0.78rem;">${log.error}</span>` : ''}
+      ${log.error ? `<span style="color:var(--red);font-size:0.78rem;">${esc(log.error)}</span>` : ''}
+      ${failureDetails}
     </div>`;
   }).join('');
 }
