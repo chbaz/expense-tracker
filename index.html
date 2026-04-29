@@ -527,6 +527,7 @@ textarea { resize: vertical; min-height: 72px; }
         <button onclick="showView('export')">Export</button>
         <button onclick="showView('sub')">Find Sub</button>
         <button onclick="showView('sync')">Sync</button>
+        <button onclick="showView('attendance')">Attendance</button>
       </nav>
     </div>
   </header>
@@ -856,6 +857,46 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
     </div>
 
+    <!-- Attendance Lookup -->
+    <div id="view-attendance" class="view">
+      <div class="card">
+        <h2>Attendance Lookup</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Since Date</label>
+            <input type="date" id="att-since">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:1rem;">
+          <label>Names (one per line)</label>
+          <textarea id="att-names" rows="12" placeholder="Lisa Utano&#10;Dave Rose&#10;Meredith Wondrasek"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="att-lookup-btn" onclick="lookupAttendance()">Look Up Classes</button>
+          <button class="btn btn-secondary" onclick="copyAttendanceCSV()" id="att-copy-btn" style="display:none;">Copy as CSV</button>
+          <button class="btn btn-secondary" onclick="downloadAttendanceCSV()" id="att-dl-btn" style="display:none;">Download CSV</button>
+        </div>
+      </div>
+
+      <div id="att-results" style="display:none;" class="card" style="padding:0;">
+        <div style="padding:0.75rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+          <span style="font-weight:700;" id="att-results-title">Results</span>
+          <span id="att-results-meta" style="font-size:0.82rem;color:var(--text-muted);"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="sync-table" id="att-table">
+            <thead><tr>
+              <th>#</th>
+              <th>Name</th>
+              <th style="text-align:right;">Classes</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="att-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom nav (mobile) -->
@@ -881,6 +922,9 @@ textarea { resize: vertical; min-height: 72px; }
       </button>
       <button class="tab-btn" onclick="showView('sync')">
         <span class="tab-icon">📡</span><span class="tab-label">Sync</span>
+      </button>
+      <button class="tab-btn" onclick="showView('attendance')">
+        <span class="tab-icon">📅</span><span class="tab-label">Attendance</span>
       </button>
     </div>
   </nav>
@@ -974,7 +1018,7 @@ function initApp() {
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
-  const idx = ['dashboard','expenses','hours','entries','export','sub','sync'].indexOf(id);
+  const idx = ['dashboard','expenses','hours','entries','export','sub','sync','attendance'].indexOf(id);
   document.querySelectorAll('header nav button').forEach((b,i) => b.classList.toggle('active', i === idx));
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
   window.scrollTo(0, 0);
@@ -984,6 +1028,7 @@ function showView(id) {
   if (id === 'export') { applyExportPreset(); generatePreview(); }
   if (id === 'sub') { renderSubView(); }
   if (id === 'sync') { loadSyncDashboard(); }
+  if (id === 'attendance') { initAttendanceView(); }
 }
 
 // ── DB helpers ────────────────────────────────────────────────────
@@ -2242,6 +2287,102 @@ async function clearSyncHistory() {
   } catch(e) {
     toast('Failed to clear history.');
   }
+}
+
+// ── Attendance Lookup ─────────────────────────────────────────────
+let attResults = [];
+
+function initAttendanceView() {
+  if (!document.getElementById('att-since').value) {
+    const d = new Date();
+    d.setDate(d.getDate() - 14);
+    document.getElementById('att-since').value = d.toISOString().slice(0,10);
+  }
+}
+
+async function lookupAttendance() {
+  const rawText = document.getElementById('att-names').value.trim();
+  const since = document.getElementById('att-since').value;
+  if (!rawText) { toast('Enter at least one name.'); return; }
+  if (!since) { toast('Pick a start date.'); return; }
+
+  const names = rawText.split('\n').map(n => n.trim()).filter(Boolean);
+  if (!names.length) { toast('No valid names found.'); return; }
+
+  const btn = document.getElementById('att-lookup-btn');
+  btn.disabled = true;
+  btn.textContent = 'Looking up…';
+  document.getElementById('att-results').style.display = 'none';
+  document.getElementById('att-copy-btn').style.display = 'none';
+  document.getElementById('att-dl-btn').style.display = 'none';
+
+  try {
+    const res = await fetch(`${SYNC_URL}?attendance=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names, since }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || res.status); }
+    const data = await res.json();
+    attResults = (data.results || []).sort((a, b) => b.classes - a.classes);
+    renderAttendanceResults(since);
+  } catch(e) {
+    toast('Lookup failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Look Up Classes';
+  }
+}
+
+function renderAttendanceResults(since) {
+  const found = attResults.filter(r => r.found);
+  const notFound = attResults.filter(r => !r.found);
+
+  document.getElementById('att-results-title').textContent =
+    `${found.length} found · ${notFound.length} not found`;
+  document.getElementById('att-results-meta').textContent =
+    `Since ${formatDate(since)}`;
+
+  const rows = attResults.map((r, i) => `
+    <tr>
+      <td style="color:var(--text-muted);font-size:0.8rem;">${i+1}</td>
+      <td style="font-weight:600;">${esc(r.name)}</td>
+      <td style="text-align:right;font-size:1.1rem;font-weight:700;color:${r.classes > 0 ? 'var(--green)' : 'var(--text-muted)'};">
+        ${r.found ? r.classes : '—'}
+      </td>
+      <td>
+        ${r.found
+          ? '<span class="history-pill synced">found</span>'
+          : '<span class="history-pill failed">not found</span>'}
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('att-tbody').innerHTML = rows;
+  document.getElementById('att-results').style.display = 'block';
+  document.getElementById('att-copy-btn').style.display = '';
+  document.getElementById('att-dl-btn').style.display = '';
+}
+
+function buildAttendanceCSV() {
+  const since = document.getElementById('att-since').value;
+  const header = `Name,Classes Since ${since},Found`;
+  const body = attResults.map(r =>
+    `"${(r.name||'').replace(/"/g,'""')}",${r.found ? r.classes : ''},${r.found ? 'yes' : 'no'}`
+  ).join('\n');
+  return header + '\n' + body;
+}
+
+function copyAttendanceCSV() {
+  navigator.clipboard.writeText(buildAttendanceCSV()).then(() => toast('Copied to clipboard!'));
+}
+
+function downloadAttendanceCSV() {
+  const since = document.getElementById('att-since').value;
+  const csv = buildAttendanceCSV();
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `attendance-since-${since}.csv`;
+  a.click();
 }
 
 initApp();
