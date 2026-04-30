@@ -2105,10 +2105,25 @@ async function downloadLeadsCSV() {
 
 async function dashExportLeads() {
   const btn = document.getElementById('dash-export-leads-btn');
-  const orig = btn.textContent;
-  btn.textContent = '⏳ Loading…';
   btn.disabled = true;
   try {
+    // Step 1: trigger sync
+    btn.textContent = '⏳ Syncing…';
+    const startRes = await fetch(SYNC_URL, { method: 'POST' });
+    if (!startRes.ok) { toast('Sync failed to start'); return; }
+
+    // Step 2: poll until done
+    const start = Date.now();
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const s = Math.floor((Date.now() - start) / 1000);
+      btn.textContent = `⏳ Syncing… ${s < 60 ? s + 's' : Math.floor(s/60) + 'm ' + s%60 + 's'}`;
+      const poll = await fetch(SYNC_URL).then(r => r.json()).catch(() => ({}));
+      if (!poll.is_syncing) break;
+    }
+
+    // Step 3: download leads CSV
+    btn.textContent = '⏳ Downloading…';
     const res = await fetch(`${SYNC_URL}?leads_csv=1`);
     const data = await res.json();
     const contacts = data.contacts ?? [];
@@ -2123,15 +2138,14 @@ async function dashExportLeads() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `Marketing_Leads_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast(`Downloaded ${contacts.length} leads`);
+    loadSyncDashboard();
+    toast(`Sync complete — downloaded ${contacts.length} leads`);
   } catch(e) {
-    toast('Download failed — check connection.');
+    toast('Export failed — check connection.');
   } finally {
-    btn.textContent = orig;
+    btn.textContent = '⬇ Export';
     btn.disabled = false;
   }
 }
