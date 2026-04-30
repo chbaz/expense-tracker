@@ -740,9 +740,12 @@ textarea { resize: vertical; min-height: 72px; }
           <div class="stat-label">Inactive</div>
           <div class="stat-value" id="sc-inactive" style="color:#999;">—</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #7e57c2;">
-          <div class="stat-label">Leads</div>
-          <div class="stat-value" id="sc-leads" style="color:#7e57c2;">—</div>
+        <div class="stat-card" style="border-left:4px solid #7e57c2;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+          <div>
+            <div class="stat-label">Leads</div>
+            <div class="stat-value" id="sc-leads" style="color:#7e57c2;">—</div>
+          </div>
+          <button class="btn" id="dash-export-leads-btn" onclick="dashExportLeads()" style="font-size:0.78rem;padding:0.35rem 0.75rem;border:1px solid #7e57c2;color:#7e57c2;background:#f5f0ff;white-space:nowrap;">⬇ Export</button>
         </div>
       </div>
 
@@ -2096,6 +2099,39 @@ async function downloadLeadsCSV() {
     toast('Download failed — check connection.');
   } finally {
     btn.querySelector('span:last-child').textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+async function dashExportLeads() {
+  const btn = document.getElementById('dash-export-leads-btn');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Loading…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${SYNC_URL}?leads_csv=1`);
+    const data = await res.json();
+    const contacts = data.contacts ?? [];
+    if (!contacts.length) { toast('No leads found — upload a CSV first.'); return; }
+    const rows = [['Email', 'First Name', 'Last Name', 'Phone', 'Join Date']];
+    for (const c of contacts) {
+      rows.push([c.email ?? '', c.first_name ?? '', c.last_name ?? '', c.phone ?? '', c.join_date ?? '']);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Marketing_Leads_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${contacts.length} leads`);
+  } catch(e) {
+    toast('Download failed — check connection.');
+  } finally {
+    btn.textContent = orig;
     btn.disabled = false;
   }
 }
