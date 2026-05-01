@@ -773,22 +773,30 @@ textarea { resize: vertical; min-height: 72px; }
         </div>
       </div>
 
-      <!-- Run Sync -->
+      <!-- Step 1: Update Has Active Membership Tag -->
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
         <div>
-          <div style="font-weight:700;font-size:1.05rem;">Momence Sync</div>
-          <div id="sync-last-run" style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;"></div>
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 1</span>
+            <div style="font-weight:700;font-size:1.05rem;">Update Has Active Membership Tag</div>
+          </div>
+          <div style="font-size:0.82rem;color:var(--text-muted);">Run this first. Marks members with active subscription plans in Momence so the sync can correctly classify them as Active.</div>
         </div>
-        <button class="btn btn-primary" id="run-sync-btn" onclick="runSync()">▶ Run Sync</button>
+        <button class="btn btn-green" id="update-active-tag-btn" onclick="updateActiveMembershipTag()"
+          title="Assigns the 'Has Active Membership' tag in Momence to all members who currently have an active paid subscription plan. Run this before Sync so those members are classified as Active regardless of their last visit date.">🏷 Update Tag</button>
       </div>
 
-      <!-- Update Has Active Membership Tag -->
+      <!-- Step 2: Run Sync -->
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
         <div>
-          <div style="font-weight:700;font-size:1.05rem;">Has Active Membership Tag</div>
-          <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Assigns the tag in Momence to all members with an active subscription plan.</div>
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 2</span>
+            <div style="font-weight:700;font-size:1.05rem;">Momence Sync</div>
+          </div>
+          <div id="sync-last-run" style="font-size:0.82rem;color:var(--text-muted);"></div>
         </div>
-        <button class="btn btn-green" id="update-active-tag-btn" onclick="updateActiveMembershipTag()">🏷 Update Tag</button>
+        <button class="btn btn-primary" id="run-sync-btn" onclick="runSync()"
+          title="Pulls all ~3,100 members from Momence and calculates a segment for each one:&#10;&#10;• Has Active Membership tag → Active&#10;• Last seen ≤ 30 days → Active&#10;• Last seen 31–60 days → Recently Lapsed&#10;• Last seen 61–365 days → Lapsed&#10;• Last seen &gt; 365 days or never → Not Active Last 12m&#10;&#10;Results are saved to the database and update the counts above. Takes ~2–3 minutes.">▶ Run Sync</button>
       </div>
 
       <!-- Progress -->
@@ -796,29 +804,75 @@ textarea { resize: vertical; min-height: 72px; }
         <div class="spinner"><div class="spin"></div> <span id="sync-progress-msg">Syncing contacts… this may take a minute.</span></div>
       </div>
 
-      <!-- Download CSVs -->
+      <!-- Step 3: Push Tags -->
       <div class="card" style="padding:0;">
-        <div style="padding:1rem 1.25rem;font-weight:700;border-bottom:1px solid var(--border);">Download for Brevo Import</div>
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 3</span>
+            <div style="font-weight:700;">Push Segment Tags to Momence</div>
+          </div>
+          <div style="font-size:0.8rem;color:var(--text-muted);">Writes each member's segment back to Momence as a tag, and removes the tag from members who moved to a different segment. Runs in the background — you'll get a notification when done.</div>
+        </div>
+        <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">
+          <button class="btn" onclick="pushTags('active')" id="pt-btn-active" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);"
+            title="Adds the 'Active 30d' tag to all Active members in Momence, and removes it from everyone else. Active = has an active membership plan, or last seen within 30 days.">
+            <span style="font-weight:700;">Active</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 30d</span>
+            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
+          </button>
+          <button class="btn" onclick="pushTags('recently_lapsed')" id="pt-btn-recently_lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;"
+            title="Adds the 'Active 60d' tag to all Recently Lapsed members in Momence, and removes it from everyone else. Recently Lapsed = last seen 31–60 days ago with no active membership.">
+            <span style="font-weight:700;">Recently Lapsed</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 60d</span>
+            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
+          </button>
+          <button class="btn" onclick="pushTags('lapsed')" id="pt-btn-lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;"
+            title="Adds the 'Active 12m' tag to all Lapsed members in Momence, and removes it from everyone else. Lapsed = last seen 61–365 days ago with no active membership.">
+            <span style="font-weight:700;">Lapsed</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 12m</span>
+            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
+          </button>
+          <button class="btn" onclick="pushTags('inactive')" id="pt-btn-inactive" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #999;color:#666;background:#f5f5f5;"
+            title="Adds the 'Not Active Last 12m' tag to all inactive members in Momence, and removes it from everyone else. Inactive = no visit in over 365 days and no active membership.">
+            <span style="font-weight:700;">Not Active Last 12m</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Not Active Last 12m</span>
+            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 4: Download CSVs -->
+      <div class="card" style="padding:0;">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:0.6rem;">
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 4</span>
+            <div style="font-weight:700;">Download for Brevo Import</div>
+          </div>
+        </div>
         <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;" id="csv-download-grid">
-          <button class="btn" onclick="downloadSegmentCSV('active','Active')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);">
+          <button class="btn" onclick="downloadSegmentCSV('active','Active')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);"
+            title="Downloads a CSV of all Active members (email, name, phone) ready to import into Brevo. Active = has an active membership plan, or visited within the last 30 days.">
             <span style="font-weight:700;">Active</span>
             <span style="font-size:0.78rem;color:var(--text-muted);">Has Active Membership or Active 30d</span>
             <span id="dl-count-active" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
-          <button class="btn" onclick="downloadSegmentCSV('recently_lapsed','Recently_Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;">
+          <button class="btn" onclick="downloadSegmentCSV('recently_lapsed','Recently_Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;"
+            title="Downloads a CSV of Recently Lapsed members ready to import into Brevo. Recently Lapsed = last visited 31–60 days ago, no active membership.">
             <span style="font-weight:700;">Recently Lapsed</span>
             <span style="font-size:0.78rem;color:var(--text-muted);">Active 60d, not in past 30d</span>
             <span id="dl-count-recently-lapsed" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
-          <button class="btn" onclick="downloadSegmentCSV('lapsed','Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;">
+          <button class="btn" onclick="downloadSegmentCSV('lapsed','Lapsed')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;"
+            title="Downloads a CSV of Lapsed members ready to import into Brevo. Lapsed = last visited 61–365 days ago, no active membership.">
             <span style="font-weight:700;">Lapsed</span>
             <span style="font-size:0.78rem;color:var(--text-muted);">Active 12m, not in past 60d</span>
             <span id="dl-count-lapsed" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
-          <button class="btn" onclick="downloadSegmentCSV('inactive','Not Active Last 12m')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #999;color:#666;background:#f5f5f5;">
+          <button class="btn" onclick="downloadSegmentCSV('inactive','Not Active Last 12m')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #999;color:#666;background:#f5f5f5;"
+            title="Downloads a CSV of Not Active Last 12m members ready to import into Brevo. These members haven't visited in over a year and have no active membership.">
             <span style="font-weight:700;">Not Active Last 12m</span>
             <span style="font-size:0.78rem;color:var(--text-muted);">No activity in past 12m</span>
             <span id="dl-count-inactive" style="font-size:1.2rem;font-weight:700;">—</span>
@@ -842,35 +896,6 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
 
       <!-- Push Tags to Momence -->
-      <div class="card" style="padding:0;">
-        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-          <div style="font-weight:700;">Push Segment Tags to Momence</div>
-          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">Assigns the correct tag in Momence for each member and clears the other three segment tags. Runs in the background — check Sync History for progress.</div>
-        </div>
-        <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">
-          <button class="btn" onclick="pushTags('active')" id="pt-btn-active" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);">
-            <span style="font-weight:700;">Active</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 30d</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('recently_lapsed')" id="pt-btn-recently_lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;">
-            <span style="font-weight:700;">Recently Lapsed</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 60d</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('lapsed')" id="pt-btn-lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;">
-            <span style="font-weight:700;">Lapsed</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 12m</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('inactive')" id="pt-btn-inactive" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #999;color:#666;background:#f5f5f5;">
-            <span style="font-weight:700;">Not Active Last 12m</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Not Active Last 12m</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-        </div>
-      </div>
-
       <!-- Member Table -->
       <div class="card" style="padding:0;">
         <div style="padding:0.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
