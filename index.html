@@ -782,6 +782,15 @@ textarea { resize: vertical; min-height: 72px; }
         <button class="btn btn-primary" id="run-sync-btn" onclick="runSync()">▶ Run Sync</button>
       </div>
 
+      <!-- Update Has Active Membership Tag -->
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <div style="font-weight:700;font-size:1.05rem;">Has Active Membership Tag</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">Assigns the tag in Momence to all members with an active subscription plan.</div>
+        </div>
+        <button class="btn btn-green" id="update-active-tag-btn" onclick="updateActiveMembershipTag()">🏷 Update Tag</button>
+      </div>
+
       <!-- Progress -->
       <div id="sync-progress" style="display:none;" class="card">
         <div class="spinner"><div class="spin"></div> <span id="sync-progress-msg">Syncing contacts… this may take a minute.</span></div>
@@ -1037,6 +1046,7 @@ const SUPABASE_URL = 'https://apehpupzkzpoedvswiga.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZWhwdXB6a3pwb2VkdnN3aWdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NDgwNzcsImV4cCI6MjA5MTUyNDA3N30.HEy5gRawDQrAHp-dtiMdeKgokSnytW7VnqO2xrwAo1w';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SYNC_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/sync-contacts';
+const UPDATE_ACTIVE_TAG_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/update-active-membership-tag';
 
 // ── App init ──────────────────────────────────────────────────────
 function initApp() {
@@ -2227,6 +2237,27 @@ async function runSync() {
     document.getElementById('sync-progress').style.display = 'none';
     toast('Sync request failed — check connection.');
     btn.disabled = false; btn.textContent = '▶ Run Sync';
+  }
+}
+
+async function updateActiveMembershipTag() {
+  const btn = document.getElementById('update-active-tag-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Updating…';
+
+  try {
+    const res = await fetch(UPDATE_ACTIVE_TAG_URL, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      toast(data.error || 'Update failed');
+    } else {
+      toast(`Done — ${data.tagsAdded} tags added, ${data.alreadyHad} already had it, ${data.uniqueMembers} members checked`);
+    }
+  } catch(e) {
+    toast('Request failed — check connection.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🏷 Update Tag';
   }
 }
 
