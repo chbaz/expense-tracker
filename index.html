@@ -1061,6 +1061,9 @@ function initApp() {
   applyDashPreset();
   loadSubData();
   showView('sub');
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────
@@ -2267,11 +2270,24 @@ async function updateActiveMembershipTag() {
   }
 }
 
-async function pollUntilSyncDone() {
+function notify(msg) {
+  toast(msg);
+  if (Notification.permission === 'granted') {
+    new Notification('Studio Tracker', { body: msg, icon: './icons/icon-192.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') new Notification('Studio Tracker', { body: msg, icon: './icons/icon-192.png' });
+    });
+  }
+}
+
+// logId: poll a specific job; label: shown in notification (omit for regular sync)
+async function pollUntilSyncDone(logId, label) {
+  const isTagPush = !!logId;
   const btn = document.getElementById('run-sync-btn');
   const msgEl = document.getElementById('sync-progress-msg');
   const start = Date.now();
-  const maxAttempts = 40; // ~2 min at 3s intervals
+  const maxAttempts = 60; // ~3 min at 3s intervals
 
   function elapsed() {
     const s = Math.floor((Date.now() - start) / 1000);
@@ -2280,34 +2296,49 @@ async function pollUntilSyncDone() {
 
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000));
-    if (msgEl) msgEl.textContent = `Syncing contacts… ${elapsed()} elapsed`;
     try {
-      const res = await fetch(SYNC_URL);
-      const data = await res.json();
-      if (!data.is_syncing) {
-        document.getElementById('sync-progress').style.display = 'none';
-        toast('Sync complete!');
-        loadSyncDashboard();
-        loadMembers(0);
-        btn.disabled = false; btn.textContent = '▶ Run Sync';
-        if (Notification.permission === 'granted') {
-          new Notification('Studio Tracker', { body: 'Momence sync complete!', icon: './icons/icon-192.png' });
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(p => {
-            if (p === 'granted') new Notification('Studio Tracker', { body: 'Momence sync complete!', icon: './icons/icon-192.png' });
-          });
+      let done = false;
+      let counts = null;
+      if (isTagPush) {
+        const res = await fetch(`${SYNC_URL}?log_id=${logId}`);
+        const data = await res.json();
+        done = data.status === 'done' || data.status === 'error';
+        counts = data.counts;
+        if (done) {
+          loadSyncDashboard();
+          if (data.status === 'error') {
+            notify(`Tag push failed — check Sync History`);
+          } else {
+            const pushed = counts?.pushed ?? 0;
+            const removed = counts?.removed ?? 0;
+            notify(`${label} tag push complete — ${pushed} tagged, ${removed} cleaned up`);
+          }
+          return;
         }
-        return;
+      } else {
+        if (msgEl) msgEl.textContent = `Syncing contacts… ${elapsed()} elapsed`;
+        const res = await fetch(SYNC_URL);
+        const data = await res.json();
+        if (!data.is_syncing) {
+          document.getElementById('sync-progress').style.display = 'none';
+          btn.disabled = false; btn.textContent = '▶ Run Sync';
+          loadSyncDashboard();
+          loadMembers(0);
+          notify('Momence sync complete!');
+          return;
+        }
       }
     } catch(e) {
       // network blip — keep polling
     }
   }
   // timed out
-  document.getElementById('sync-progress').style.display = 'none';
-  toast('Sync is taking a long time — check history in a moment.');
-  btn.disabled = false; btn.textContent = '▶ Run Sync';
-  loadSyncDashboard();
+  if (!isTagPush) {
+    document.getElementById('sync-progress').style.display = 'none';
+    btn.disabled = false; btn.textContent = '▶ Run Sync';
+    loadSyncDashboard();
+  }
+  notify(label ? `${label} tag push is taking a long time — check Sync History` : 'Sync is taking a long time — check history in a moment.');
 }
 
 let _memberListCollapsed = true;
