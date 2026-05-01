@@ -128,6 +128,17 @@ main {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.btn-spin {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 /* ── Period / Filters ── */
 .period-bar {
   display: flex;
@@ -2252,7 +2263,8 @@ async function loadSyncDashboard() {
 
 async function runSync() {
   const btn = document.getElementById('run-sync-btn');
-  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spin"></span> Syncing…';
   document.getElementById('sync-progress').style.display = '';
 
   try {
@@ -2261,23 +2273,22 @@ async function runSync() {
       const data = await res.json().catch(() => ({}));
       document.getElementById('sync-progress').style.display = 'none';
       toast(data.error || 'Sync failed to start');
-      btn.disabled = false; btn.textContent = '▶ Run Sync';
+      btn.disabled = false; btn.innerHTML = '▶ Run Sync';
       return;
     }
 
-    // POST returns immediately with { status: "started" } — poll until done
     await pollUntilSyncDone();
   } catch(e) {
     document.getElementById('sync-progress').style.display = 'none';
     toast('Sync request failed — check connection.');
-    btn.disabled = false; btn.textContent = '▶ Run Sync';
+    btn.disabled = false; btn.innerHTML = '▶ Run Sync';
   }
 }
 
 async function updateActiveMembershipTag() {
   const btn = document.getElementById('update-active-tag-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Updating…';
+  btn.innerHTML = '<span class="btn-spin"></span> Updating…';
 
   try {
     const res = await fetch(UPDATE_ACTIVE_TAG_URL, { method: 'POST' });
@@ -2291,7 +2302,7 @@ async function updateActiveMembershipTag() {
     toast('Request failed — check connection.');
   } finally {
     btn.disabled = false;
-    btn.textContent = '🏷 Update Tag';
+    btn.innerHTML = '🏷 Update Tag';
   }
 }
 
@@ -2306,10 +2317,10 @@ function notify(msg) {
   }
 }
 
-// logId: poll a specific job; label: shown in notification (omit for regular sync)
-async function pollUntilSyncDone(logId, label) {
+// logId: poll a specific job; label: notification text; onDone: called when job finishes
+async function pollUntilSyncDone(logId, label, onDone) {
   const isTagPush = !!logId;
-  const btn = document.getElementById('run-sync-btn');
+  const syncBtn = document.getElementById('run-sync-btn');
   const msgEl = document.getElementById('sync-progress-msg');
   const start = Date.now();
   const maxAttempts = 60; // ~3 min at 3s intervals
@@ -2322,20 +2333,18 @@ async function pollUntilSyncDone(logId, label) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000));
     try {
-      let done = false;
-      let counts = null;
       if (isTagPush) {
         const res = await fetch(`${SYNC_URL}?log_id=${logId}`);
         const data = await res.json();
-        done = data.status === 'done' || data.status === 'error';
-        counts = data.counts;
+        const done = data.status === 'done' || data.status === 'error';
         if (done) {
           loadSyncDashboard();
+          if (onDone) onDone();
           if (data.status === 'error') {
-            notify(`Tag push failed — check Sync History`);
+            notify('Tag push failed — check Sync History');
           } else {
-            const pushed = counts?.pushed ?? 0;
-            const removed = counts?.removed ?? 0;
+            const pushed = data.counts?.pushed ?? 0;
+            const removed = data.counts?.removed ?? 0;
             notify(`${label} tag push complete — ${pushed} tagged, ${removed} cleaned up`);
           }
           return;
@@ -2346,7 +2355,7 @@ async function pollUntilSyncDone(logId, label) {
         const data = await res.json();
         if (!data.is_syncing) {
           document.getElementById('sync-progress').style.display = 'none';
-          btn.disabled = false; btn.textContent = '▶ Run Sync';
+          syncBtn.disabled = false; syncBtn.innerHTML = '▶ Run Sync';
           loadSyncDashboard();
           loadMembers(0);
           notify('Momence sync complete!');
@@ -2360,9 +2369,10 @@ async function pollUntilSyncDone(logId, label) {
   // timed out
   if (!isTagPush) {
     document.getElementById('sync-progress').style.display = 'none';
-    btn.disabled = false; btn.textContent = '▶ Run Sync';
+    syncBtn.disabled = false; syncBtn.innerHTML = '▶ Run Sync';
     loadSyncDashboard();
   }
+  if (onDone) onDone();
   notify(label ? `${label} tag push is taking a long time — check Sync History` : 'Sync is taking a long time — check history in a moment.');
 }
 
@@ -2493,10 +2503,11 @@ async function clearSyncHistory() {
 async function pushTags(segment) {
   const btn = document.getElementById(`pt-btn-${segment}`);
   const label = { active: 'Active', recently_lapsed: 'Recently Lapsed', lapsed: 'Lapsed', inactive: 'Not Active Last 12m' }[segment];
-  if (!confirm(`Push "${label}" tags to Momence for all ${label} members?\n\nThis will update tags in Momence. It runs in the background — check Sync History for progress.`)) return;
+  if (!confirm(`Push "${label}" tags to Momence for all ${label} members?\n\nThis will update tags in Momence. It runs in the background — you'll get a notification when done.`)) return;
 
+  const origHTML = btn.innerHTML;
   btn.disabled = true;
-  btn.querySelector('span:last-child').textContent = 'Starting…';
+  btn.innerHTML = `<span class="btn-spin" style="width:18px;height:18px;margin-bottom:0.2rem;"></span><span style="font-size:0.8rem;">Working…</span>`;
 
   try {
     const res = await fetch(`${SYNC_URL}?push_tags=1`, {
@@ -2506,14 +2517,16 @@ async function pushTags(segment) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
-    toast(`Tag push started for ${label}. Check Sync History for results.`);
-    // Start polling so history updates when done
-    pollUntilSyncDone(data.logId);
+    toast(`Tag push started for ${label} — spinner will stop when done.`);
+    // Keep button spinning until job completes, then restore
+    pollUntilSyncDone(data.logId, label, () => {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    });
   } catch(e) {
     toast('Failed to start tag push: ' + e.message);
-  } finally {
     btn.disabled = false;
-    btn.querySelector('span:last-child').textContent = '🏷 Push to Momence';
+    btn.innerHTML = origHTML;
   }
 }
 
