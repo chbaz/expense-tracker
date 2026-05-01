@@ -737,7 +737,7 @@ textarea { resize: vertical; min-height: 72px; }
           <div class="stat-value" id="sc-lapsed" style="color:#c8a228;">—</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #999;">
-          <div class="stat-label">Inactive</div>
+          <div class="stat-label">Not Active Last 12m</div>
           <div class="stat-value" id="sc-inactive" style="color:#999;">—</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #7e57c2;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
@@ -818,8 +818,8 @@ textarea { resize: vertical; min-height: 72px; }
             <span id="dl-count-lapsed" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
           </button>
-          <button class="btn" onclick="downloadSegmentCSV('inactive','Inactive')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #999;color:#666;background:#f5f5f5;">
-            <span style="font-weight:700;">Inactive</span>
+          <button class="btn" onclick="downloadSegmentCSV('inactive','Not Active Last 12m')" style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.9rem;border:1px solid #999;color:#666;background:#f5f5f5;">
+            <span style="font-weight:700;">Not Active Last 12m</span>
             <span style="font-size:0.78rem;color:var(--text-muted);">No activity in past 12m</span>
             <span id="dl-count-inactive" style="font-size:1.2rem;font-weight:700;">—</span>
             <span style="font-size:0.78rem;">⬇ Download CSV</span>
@@ -864,8 +864,8 @@ textarea { resize: vertical; min-height: 72px; }
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
           <button class="btn" onclick="pushTags('inactive')" id="pt-btn-inactive" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #999;color:#666;background:#f5f5f5;">
-            <span style="font-weight:700;">Inactive</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Inactive</span>
+            <span style="font-weight:700;">Not Active Last 12m</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Not Active Last 12m</span>
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
         </div>
@@ -880,7 +880,7 @@ textarea { resize: vertical; min-height: 72px; }
             <option value="active">Active</option>
             <option value="recently_lapsed">Recently Lapsed</option>
             <option value="lapsed">Lapsed</option>
-            <option value="inactive">Inactive</option>
+            <option value="inactive">Not Active Last 12m</option>
           </select>
         </div>
         <div id="sync-member-table" style="overflow-x:auto;">
@@ -1983,7 +1983,7 @@ let syncMemberPage = 0;
 let syncMemberTotal = 0;
 
 function statusBadge(s) {
-  const labels = { active:'Active', recently_lapsed:'Recently Lapsed', lapsed:'Lapsed', inactive:'Inactive' };
+  const labels = { active:'Active', recently_lapsed:'Recently Lapsed', lapsed:'Lapsed', inactive:'Not Active Last 12m' };
   return `<span class="status-badge ${s}">${labels[s]||s}</span>`;
 }
 
@@ -2421,7 +2421,7 @@ async function clearSyncHistory() {
 // ── Push Tags to Momence ──────────────────────────────────────────
 async function pushTags(segment) {
   const btn = document.getElementById(`pt-btn-${segment}`);
-  const label = { active: 'Active', recently_lapsed: 'Recently Lapsed', lapsed: 'Lapsed', inactive: 'Inactive' }[segment];
+  const label = { active: 'Active', recently_lapsed: 'Recently Lapsed', lapsed: 'Lapsed', inactive: 'Not Active Last 12m' }[segment];
   if (!confirm(`Push "${label}" tags to Momence for all ${label} members?\n\nThis will update tags in Momence. It runs in the background — check Sync History for progress.`)) return;
 
   btn.disabled = true;
