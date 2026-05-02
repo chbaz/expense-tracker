@@ -247,9 +247,32 @@ textarea { resize: vertical; min-height: 72px; }
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
+  position: relative;
 }
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Custom tooltip — replaces unreliable native title= tooltips */
+.btn[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2c2420;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 7px 11px;
+  border-radius: 6px;
+  white-space: pre-line;
+  width: max-content;
+  max-width: 280px;
+  z-index: 500;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
 
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
@@ -772,10 +795,6 @@ textarea { resize: vertical; min-height: 72px; }
         </div>
       </div>
       <div class="stats-grid" id="sync-tags-grid">
-        <div class="stat-card" style="border-left:4px solid var(--green);">
-          <div class="stat-label">Has Active Membership</div>
-          <div class="stat-value" id="tc-has-active" style="color:var(--green);">—</div>
-        </div>
         <div class="stat-card" style="border-left:4px solid #5b9bd5;">
           <div class="stat-label">Active Last 30 Days</div>
           <div class="stat-value" id="tc-active-30d" style="color:#5b9bd5;">—</div>
@@ -788,26 +807,17 @@ textarea { resize: vertical; min-height: 72px; }
           <div class="stat-label">Active Last 12 Months</div>
           <div class="stat-value" id="tc-active-12m" style="color:#e07b30;">—</div>
         </div>
+        <div class="stat-card" style="border-left:4px solid #999;">
+          <div class="stat-label">Not Active Last 12m</div>
+          <div class="stat-value" id="tc-inactive" style="color:#999;">—</div>
+        </div>
       </div>
 
-      <!-- Step 1: Update Has Active Membership Tag -->
+      <!-- Step 1: Run Sync -->
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
         <div>
           <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
             <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 1</span>
-            <div style="font-weight:700;font-size:1.05rem;">Update Has Active Membership Tag</div>
-          </div>
-          <div style="font-size:0.82rem;color:var(--text-muted);">Run this first. Marks members with active subscription plans in Momence so the sync can correctly classify them as Active.</div>
-        </div>
-        <button class="btn btn-green" id="update-active-tag-btn" onclick="updateActiveMembershipTag()"
-          title="Assigns the 'Has Active Membership' tag in Momence to all members who currently have an active paid subscription plan. Run this before Sync so those members are classified as Active regardless of their last visit date.">🏷 Update Tag</button>
-      </div>
-
-      <!-- Step 2: Run Sync -->
-      <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
-        <div>
-          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
-            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 2</span>
             <div style="font-weight:700;font-size:1.05rem;">Momence Sync</div>
           </div>
           <div id="sync-last-run" style="font-size:0.82rem;color:var(--text-muted);"></div>
@@ -821,38 +831,38 @@ textarea { resize: vertical; min-height: 72px; }
         <div class="spinner"><div class="spin"></div> <span id="sync-progress-msg">Syncing contacts… this may take a minute.</span></div>
       </div>
 
-      <!-- Step 3: Push Tags -->
+      <!-- Step 2: Push Tags -->
       <div class="card" style="padding:0;">
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
-            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 3</span>
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 2</span>
             <div style="font-weight:700;">Push Segment Tags to Momence</div>
           </div>
           <div style="font-size:0.8rem;color:var(--text-muted);">Writes each member's segment back to Momence as a tag, and removes the tag from members who moved to a different segment. Runs in the background — you'll get a notification when done.</div>
         </div>
         <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">
           <button class="btn" onclick="pushTags('active')" id="pt-btn-active" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);"
-            title="Adds the 'Active 30d' tag to all Active members in Momence, and removes it from everyone else. Active = has an active membership plan, or last seen within 30 days.">
-            <span style="font-weight:700;">Active</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 30d</span>
+            data-tip="Attended in last 30 days.\nTag: Active Last 30 Days\nRemoves tag from everyone else.">
+            <span style="font-weight:700;">Active (30d)</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 30 Days</span>
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
           <button class="btn" onclick="pushTags('recently_lapsed')" id="pt-btn-recently_lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;"
-            title="Adds the 'Active 60d' tag to all Recently Lapsed members in Momence, and removes it from everyone else. Recently Lapsed = last seen 31–60 days ago with no active membership.">
-            <span style="font-weight:700;">Recently Lapsed</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 60d</span>
+            data-tip="Attended 31–60 days ago.\nTag: Active Last 60 Days\nRemoves tag from everyone else.">
+            <span style="font-weight:700;">Recently Lapsed (60d)</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 60 Days</span>
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
           <button class="btn" onclick="pushTags('lapsed')" id="pt-btn-lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;"
-            title="Adds the 'Active 12m' tag to all Lapsed members in Momence, and removes it from everyone else. Lapsed = last seen 61–365 days ago with no active membership.">
-            <span style="font-weight:700;">Lapsed</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Active 12m</span>
+            data-tip="Attended 61–365 days ago.\nTag: Active Last 12 Months\nRemoves tag from everyone else.">
+            <span style="font-weight:700;">Lapsed (12m)</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 12 Months</span>
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
           <button class="btn" onclick="pushTags('inactive')" id="pt-btn-inactive" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #999;color:#666;background:#f5f5f5;"
-            title="Adds the 'Not Active Last 12m' tag to all inactive members in Momence, and removes it from everyone else. Inactive = no visit in over 365 days and no active membership.">
+            data-tip="No attendance in over 12 months, or never attended.\nTag: Not Active Last 12m\nRemoves tag from everyone else.">
             <span style="font-weight:700;">Not Active Last 12m</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Tag: Not Active Last 12m</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Not Active Last 12m</span>
             <span style="font-size:0.78rem;">🏷 Push to Momence</span>
           </button>
         </div>
@@ -862,7 +872,7 @@ textarea { resize: vertical; min-height: 72px; }
       <div class="card" style="padding:0;">
         <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:0.6rem;">
-            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 4</span>
+            <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 3</span>
             <div style="font-weight:700;">Download for Brevo Import</div>
           </div>
         </div>
@@ -1094,7 +1104,6 @@ const SUPABASE_URL = 'https://apehpupzkzpoedvswiga.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwZWhwdXB6a3pwb2VkdnN3aWdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NDgwNzcsImV4cCI6MjA5MTUyNDA3N30.HEy5gRawDQrAHp-dtiMdeKgokSnytW7VnqO2xrwAo1w';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SYNC_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/sync-contacts';
-const UPDATE_ACTIVE_TAG_URL = 'https://ustbzgdbjlitayhyxqqp.supabase.co/functions/v1/update-active-membership-tag';
 
 // ── App init ──────────────────────────────────────────────────────
 function initApp() {
@@ -2039,10 +2048,10 @@ function statusBadge(s) {
 }
 
 function populateTagCounts(tc) {
-  document.getElementById('tc-has-active').textContent = tc['Has Active Membership'] ?? '—';
-  document.getElementById('tc-active-30d').textContent = tc['Active 30d'] ?? '—';
-  document.getElementById('tc-active-60d').textContent = tc['Active 60d'] ?? '—';
-  document.getElementById('tc-active-12m').textContent = tc['Active 12m'] ?? '—';
+  document.getElementById('tc-active-30d').textContent = tc['Active Last 30 Days'] ?? '—';
+  document.getElementById('tc-active-60d').textContent = tc['Active Last 60 Days'] ?? '—';
+  document.getElementById('tc-active-12m').textContent = tc['Active Last 12 Months'] ?? '—';
+  document.getElementById('tc-inactive').textContent   = tc['Not Active Last 12m'] ?? '—';
 }
 
 async function refreshTagCounts() {
@@ -2291,26 +2300,6 @@ async function runSync() {
   }
 }
 
-async function updateActiveMembershipTag() {
-  const btn = document.getElementById('update-active-tag-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="btn-spin"></span> Updating…';
-
-  try {
-    const res = await fetch(UPDATE_ACTIVE_TAG_URL, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      toast(data.error || 'Update failed');
-    } else {
-      toast(`Done — ${data.tagsAdded} tags added, ${data.alreadyHad} already had it, ${data.uniqueMembers} members checked`);
-    }
-  } catch(e) {
-    toast('Request failed — check connection.');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '🏷 Update Tag';
-  }
-}
 
 function notify(msg) {
   toast(msg);
