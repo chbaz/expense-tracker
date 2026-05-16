@@ -832,40 +832,16 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
 
       <!-- Step 2: Push Tags -->
-      <div class="card" style="padding:0;">
-        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
           <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;">
             <span style="background:#2c6fad;color:#fff;font-size:0.7rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;letter-spacing:0.04em;white-space:nowrap;">STEP 2</span>
-            <div style="font-weight:700;">Push Segment Tags to Momence</div>
+            <div style="font-weight:700;font-size:1.05rem;">Push Segment Tags to Momence</div>
           </div>
-          <div style="font-size:0.8rem;color:var(--text-muted);">Writes each member's segment back to Momence as a tag, and removes the tag from members who moved to a different segment. Runs in the background — you'll get a notification when done.</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);">Assigns each member exactly one segment tag and removes the other three. Counts update when done.</div>
         </div>
-        <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">
-          <button class="btn" onclick="pushTags('active')" id="pt-btn-active" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid var(--green);color:var(--green);background:var(--green-light);"
-            data-tip="Attended in last 30 days.\nTag: Active Last 30 Days\nRemoves tag from everyone else.">
-            <span style="font-weight:700;">Active (30d)</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 30 Days</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('recently_lapsed')" id="pt-btn-recently_lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #e07b30;color:#e07b30;background:#fff7f0;"
-            data-tip="Attended 31–60 days ago.\nTag: Active Last 60 Days\nRemoves tag from everyone else.">
-            <span style="font-weight:700;">Recently Lapsed (60d)</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 60 Days</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('lapsed')" id="pt-btn-lapsed" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #c8a228;color:#c8a228;background:#fffbee;"
-            data-tip="Attended 61–365 days ago.\nTag: Active Last 12 Months\nRemoves tag from everyone else.">
-            <span style="font-weight:700;">Lapsed (12m)</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Active Last 12 Months</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-          <button class="btn" onclick="pushTags('inactive')" id="pt-btn-inactive" style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.85rem;border:1px solid #999;color:#666;background:#f5f5f5;"
-            data-tip="No attendance in over 12 months, or never attended.\nTag: Not Active Last 12m\nRemoves tag from everyone else.">
-            <span style="font-weight:700;">Not Active Last 12m</span>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Not Active Last 12m</span>
-            <span style="font-size:0.78rem;">🏷 Push to Momence</span>
-          </button>
-        </div>
+        <button class="btn btn-primary" id="pt-btn-all" onclick="pushTags()"
+          title="Assigns exactly one segment tag per member (Active 30d / Active 60d / Active 12m / Not Active 12m) and removes the other three. Runs in the background.">🏷 Push All Tags</button>
       </div>
 
       <!-- Step 4: Download CSVs -->
@@ -965,6 +941,10 @@ textarea { resize: vertical; min-height: 72px; }
           <div class="form-group">
             <label>Since Date</label>
             <input type="date" id="att-since">
+          </div>
+          <div class="form-group">
+            <label>Until Date</label>
+            <input type="date" id="att-until">
           </div>
         </div>
         <div class="form-group" style="margin-top:1rem;">
@@ -1745,10 +1725,12 @@ function firstName(name) {
 }
 
 function buildAskText(name, req) {
-  return `Hi ${firstName(name)}! Any interest in subbing on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}?`;
+  const classTypePart = req.classType ? `a ${req.classType} class ` : '';
+  return `Hi ${firstName(name)}! Any interest in subbing ${classTypePart}on ${fmtDate(req.date)} at ${fmtTime(req.time)} at ${req.location||'[location]'}?`;
 }
 function buildReminderText(name, req) {
-  return `Hey ${firstName(name)} - quick reminder that I have you subbing the ${fmtTime(req.time)} at ${req.location||'[location]'} on ${fmtDate(req.date)}. Thank you!`;
+  const classTypePart = req.classType ? `${req.classType} ` : '';
+  return `Hey ${firstName(name)} - quick reminder that I have you subbing the ${classTypePart}${fmtTime(req.time)} at ${req.location||'[location]'} on ${fmtDate(req.date)}. Thank you!`;
 }
 
 function copyText(text, badgeId) {
@@ -2338,9 +2320,9 @@ async function pollUntilSyncDone(logId, label, onDone) {
           if (data.status === 'error') {
             notify('Tag push failed — check Sync History');
           } else {
-            const pushed = data.counts?.pushed ?? 0;
+            const added = data.counts?.added ?? 0;
             const removed = data.counts?.removed ?? 0;
-            notify(`${label} tag push complete — ${pushed} tagged, ${removed} cleaned up`);
+            notify(`Tag push complete — ${added} tagged, ${removed} removed`);
           }
           return;
         }
@@ -2495,28 +2477,27 @@ async function clearSyncHistory() {
 }
 
 // ── Push Tags to Momence ──────────────────────────────────────────
-async function pushTags(segment) {
-  const btn = document.getElementById(`pt-btn-${segment}`);
-  const label = { active: 'Active', recently_lapsed: 'Recently Lapsed', lapsed: 'Lapsed', inactive: 'Not Active Last 12m' }[segment];
-  if (!confirm(`Push "${label}" tags to Momence for all ${label} members?\n\nThis will update tags in Momence. It runs in the background — you'll get a notification when done.`)) return;
+async function pushTags() {
+  const btn = document.getElementById('pt-btn-all');
+  if (!confirm('Push all segment tags to Momence?\n\nEach member will get exactly one tag (Active 30d / Active 60d / Active 12m / Not Active 12m). All other segment tags will be removed. Runs in the background.')) return;
 
   const origHTML = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="btn-spin" style="width:18px;height:18px;margin-bottom:0.2rem;"></span><span style="font-size:0.8rem;">Working…</span>`;
+  btn.innerHTML = `<span class="btn-spin" style="width:16px;height:16px;display:inline-block;margin-right:0.4rem;vertical-align:middle;"></span>Working…`;
 
   try {
     const res = await fetch(`${SYNC_URL}?push_tags=1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segment }),
+      body: JSON.stringify({}),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
-    toast(`Tag push started for ${label} — spinner will stop when done.`);
-    // Keep button spinning until job completes, then restore
-    pollUntilSyncDone(data.logId, label, () => {
+    toast('Tag push started — counts will update when done.');
+    pollUntilSyncDone(data.logId, 'All Segments', () => {
       btn.disabled = false;
       btn.innerHTML = origHTML;
+      loadSyncDashboard();
     });
   } catch(e) {
     toast('Failed to start tag push: ' + e.message);
@@ -2529,16 +2510,21 @@ async function pushTags(segment) {
 let attResults = [];
 
 function initAttendanceView() {
+  const today = new Date().toISOString().slice(0,10);
   if (!document.getElementById('att-since').value) {
     const d = new Date();
     d.setDate(d.getDate() - 14);
     document.getElementById('att-since').value = d.toISOString().slice(0,10);
+  }
+  if (!document.getElementById('att-until').value) {
+    document.getElementById('att-until').value = today;
   }
 }
 
 async function lookupAttendance() {
   const rawText = document.getElementById('att-names').value.trim();
   const since = document.getElementById('att-since').value;
+  const until = document.getElementById('att-until').value;
   if (!rawText) { toast('Enter at least one name.'); return; }
   if (!since) { toast('Pick a start date.'); return; }
 
@@ -2553,15 +2539,17 @@ async function lookupAttendance() {
   document.getElementById('att-dl-btn').style.display = 'none';
 
   try {
+    const body = { names, since };
+    if (until) body.until = until;
     const res = await fetch(`${SYNC_URL}?attendance=1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ names, since }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error || res.status); }
     const data = await res.json();
     attResults = (data.results || []).sort((a, b) => b.classes - a.classes);
-    renderAttendanceResults(since);
+    renderAttendanceResults(since, until);
   } catch(e) {
     toast('Lookup failed: ' + e.message);
   } finally {
@@ -2570,14 +2558,16 @@ async function lookupAttendance() {
   }
 }
 
-function renderAttendanceResults(since) {
+function renderAttendanceResults(since, until) {
   const found = attResults.filter(r => r.found);
   const notFound = attResults.filter(r => !r.found);
 
   document.getElementById('att-results-title').textContent =
     `${found.length} found · ${notFound.length} not found`;
-  document.getElementById('att-results-meta').textContent =
-    `Since ${formatDate(since)}`;
+  const meta = until
+    ? `${formatDate(since)} – ${formatDate(until)}`
+    : `Since ${formatDate(since)}`;
+  document.getElementById('att-results-meta').textContent = meta;
 
   const rows = attResults.map((r, i) => `
     <tr>
@@ -2601,7 +2591,9 @@ function renderAttendanceResults(since) {
 
 function buildAttendanceCSV() {
   const since = document.getElementById('att-since').value;
-  const header = `Name,Classes Since ${since},Found`;
+  const until = document.getElementById('att-until').value;
+  const rangeLabel = until ? `${since} to ${until}` : `since ${since}`;
+  const header = `Name,Classes (${rangeLabel}),Found`;
   const body = attResults.map(r =>
     `"${(r.name||'').replace(/"/g,'""')}",${r.found ? r.classes : ''},${r.found ? 'yes' : 'no'}`
   ).join('\n');
@@ -2614,10 +2606,11 @@ function copyAttendanceCSV() {
 
 function downloadAttendanceCSV() {
   const since = document.getElementById('att-since').value;
+  const until = document.getElementById('att-until').value;
   const csv = buildAttendanceCSV();
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = `attendance-since-${since}.csv`;
+  a.download = until ? `attendance-${since}-to-${until}.csv` : `attendance-since-${since}.csv`;
   a.click();
 }
 
