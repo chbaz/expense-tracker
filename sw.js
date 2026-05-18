@@ -1,4 +1,4 @@
-const CACHE = 'studio-tracker-v45';
+const CACHE = 'studio-tracker-v46';
 const STATIC_ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
