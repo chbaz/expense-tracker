@@ -1512,14 +1512,19 @@ function toast(msg) {
 const CATEGORIES = ['Pilates', 'Yin', 'Bikram', 'Sumits'];
 
 const DEFAULT_INSTRUCTORS = [
-  { id: 'di1', name: 'Carole',            categories: ['BIKRAM'] },
-  { id: 'di2', name: 'Cindy',             categories: ['BIKRAM', 'SUMITS'] },
-  { id: 'di3', name: 'Cintra',            categories: ['BIKRAM'] },
-  { id: 'di4', name: 'David',             categories: ['YIN', 'BIKRAM'] },
-  { id: 'di5', name: 'Genevieve',         categories: ['YIN'] },
-  { id: 'di6', name: 'Jennifer Tenaglia', categories: ['PILATES'] },
-  { id: 'di7', name: 'Kristin',           categories: ['PILATES', 'BIKRAM', 'SUMITS'] },
+  { id: 'di1', name: 'Carole',            categories: ['Bikram'] },
+  { id: 'di2', name: 'Cindy',             categories: ['Bikram', 'Sumits'] },
+  { id: 'di3', name: 'Cintra',            categories: ['Bikram'] },
+  { id: 'di4', name: 'David',             categories: ['Yin', 'Bikram'] },
+  { id: 'di5', name: 'Genevieve',         categories: ['Yin'] },
+  { id: 'di6', name: 'Jennifer Tenaglia', categories: ['Pilates'] },
+  { id: 'di7', name: 'Kristin',           categories: ['Pilates', 'Bikram', 'Sumits'] },
 ];
+
+const CAT_NORMALIZE = { 'PILATES': 'Pilates', 'YIN': 'Yin', 'BIKRAM': 'Bikram', 'SUMITS': 'Sumits' };
+function normalizeCategories(cats) {
+  return (cats || []).map(c => CAT_NORMALIZE[c] || c);
+}
 
 let instructors = [];
 let subRequests = [];
@@ -1552,7 +1557,13 @@ async function loadSubData() {
   ]);
 
   if (dbInst && dbInst.length > 0) {
-    instructors = dbInst.map(r => ({ id: r.id, name: r.name, categories: r.categories || [] }));
+    let needsSave = false;
+    instructors = dbInst.map(r => {
+      const normalized = normalizeCategories(r.categories);
+      if (normalized.join() !== (r.categories || []).join()) needsSave = true;
+      return { id: r.id, name: r.name, categories: normalized };
+    });
+    if (needsSave) saveInstructors();
   } else {
     const stored = JSON.parse(localStorage.getItem('sub_instructors') || 'null');
     instructors = stored ? stored.map(i => ({ ...i, categories: i.categories || [] })) : DEFAULT_INSTRUCTORS.map(i => ({ ...i }));
