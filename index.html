@@ -1231,7 +1231,7 @@ function showView(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'entries') renderEntries();
   if (id === 'export') { applyExportPreset(); generatePreview(); }
-  if (id === 'sub') { renderSubView(); }
+  if (id === 'sub') { subRequests.forEach(r => { r.open = false; }); renderSubView(); }
   if (id === 'sync') { loadSyncDashboard(); }
   if (id === 'attendance') { initAttendanceView(); }
 }
