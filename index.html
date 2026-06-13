@@ -521,6 +521,12 @@ textarea { resize: vertical; min-height: 72px; }
   padding: 0.75rem 0 0.25rem; border-top: 1px solid var(--border); margin-top: 0.25rem;
 }
 .cat-group-header:first-child { border-top: none; padding-top: 0; }
+.needs-sub-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:10px;
+  background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+}
+.nav-sep { border-left: 1px solid var(--border); margin-left: 6px; padding-left: 6px; }
 
 /* ── Sync view ── */
 .status-badge {
@@ -558,7 +564,7 @@ textarea { resize: vertical; min-height: 72px; }
         <button onclick="showView('expenses')">Add Expense</button>
         <button onclick="showView('hours')">Add Hours</button>
         <button onclick="showView('entries')">All Entries</button>
-        <button onclick="showView('export')">Export</button>
+        <button class="nav-sep" onclick="showView('export')">Export</button>
         <button onclick="showView('sub')">Find Sub</button>
         <button onclick="showView('sync')">Sync</button>
         <button onclick="showView('attendance')">Attendance</button>
@@ -572,6 +578,7 @@ textarea { resize: vertical; min-height: 72px; }
       <div class="period-bar">
         <label>Period:</label>
         <select id="dash-preset" onchange="applyDashPreset()">
+          <option value="last30">Last 30 Days</option>
           <option value="thisMonth">This Month</option>
           <option value="lastMonth">Last Month</option>
           <option value="thisYear">This Year</option>
@@ -994,9 +1001,6 @@ textarea { resize: vertical; min-height: 72px; }
       <button class="tab-btn" onclick="showView('entries')">
         <span class="tab-icon">📋</span><span class="tab-label">Entries</span>
       </button>
-      <button class="tab-btn" onclick="showView('export')">
-        <span class="tab-icon">📤</span><span class="tab-label">Export</span>
-      </button>
       <button class="tab-btn active" onclick="showView('sub')">
         <span class="tab-icon">🔄</span><span class="tab-label">Find Sub</span>
       </button>
@@ -1144,6 +1148,11 @@ function formatDate(d) {
 function periodRange(preset) {
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
+  if (preset === 'last30') {
+    const to = now.toISOString().slice(0,10);
+    const from = new Date(now - 30*24*60*60*1000).toISOString().slice(0,10);
+    return { from, to };
+  }
   if (preset === 'thisMonth') return { from: new Date(y,m,1).toISOString().slice(0,10), to: new Date(y,m+1,0).toISOString().slice(0,10) };
   if (preset === 'lastMonth') return { from: new Date(y,m-1,1).toISOString().slice(0,10), to: new Date(y,m,0).toISOString().slice(0,10) };
   if (preset === 'thisYear') return { from: `${y}-01-01`, to: `${y}-12-31` };
@@ -1300,6 +1309,7 @@ async function saveHours() {
   if (!date) { toast('Please enter a date.'); return; }
   if (!description) { toast('Please enter a description.'); return; }
   if (!hours || isNaN(hours) || Number(hours) < 0) { toast('Please enter valid hours.'); return; }
+  if (Number(hours) === 0) { toast('Hours is 0 — did you mean to enter a value?'); return; }
 
   const btn = document.getElementById('save-hours-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -1789,7 +1799,7 @@ function instRow(reqId, inst, s) {
   };
   const STATUS_LABELS = { asked:'Asked', maybe:'Maybe', no:'No', confirmed:'✓ Yes' };
   const btnStyle = s ? STATUS_STYLES[s] : '';
-  const btnLabel = s ? STATUS_LABELS[s] : 'Ask?';
+  const btnLabel = s ? STATUS_LABELS[s] : '+ Ask';
 
   let copyBtn = '';
   if (req && (s === 'asked' || s === 'maybe')) {
@@ -1832,9 +1842,36 @@ function renderRequestInstructors(reqId) {
   }
 
   const list = sorted.filter(i => (i.categories||[]).includes(activeCat));
-  el.innerHTML = list.length
-    ? list.map(i => instRow(reqId, i, req.statuses[i.id])).join('')
-    : '<p class="no-instructors">No instructors tagged for this class type.</p>';
+  if (!list.length) {
+    el.innerHTML = '<p class="no-instructors">No instructors tagged for this class type.</p>';
+    return;
+  }
+
+  const withStatus = list.filter(i => req.statuses[i.id]);
+  const unasked = list.filter(i => !req.statuses[i.id]);
+  const THRESHOLD = 4;
+
+  let html = withStatus.map(i => instRow(reqId, i, req.statuses[i.id])).join('');
+
+  if (unasked.length <= THRESHOLD) {
+    html += unasked.map(i => instRow(reqId, i, null)).join('');
+  } else {
+    html += unasked.slice(0, THRESHOLD).map(i => instRow(reqId, i, null)).join('');
+    const hiddenCount = unasked.length - THRESHOLD;
+    html += `<div id="inst-more-${reqId}" style="display:none;">${unasked.slice(THRESHOLD).map(i => instRow(reqId, i, null)).join('')}</div>`;
+    html += `<button class="status-btn" id="show-more-btn-${reqId}" style="width:100%;margin-top:0.35rem;display:block;text-align:center;" onclick="toggleMoreInst('${reqId}',${hiddenCount})">+ ${hiddenCount} more to ask</button>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleMoreInst(reqId, count) {
+  const el = document.getElementById('inst-more-' + reqId);
+  const btn = document.getElementById('show-more-btn-' + reqId);
+  if (!el) return;
+  const expanded = el.style.display !== 'none';
+  el.style.display = expanded ? 'none' : '';
+  btn.textContent = expanded ? `+ ${count} more to ask` : 'Show less';
 }
 
 function renderRequestTexts(reqId) {
@@ -1885,13 +1922,19 @@ function reqCard(req) {
       const esc = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
       return `<button class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Ask — ${firstName(inst.name)}</button><span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>`;
     }).join('');
-    if (noCount) statusChips += `<span style="font-size:0.8rem;color:var(--text-muted);">${noCount} no</span>`;
+    if (noCount) statusChips += `<span style="font-size:0.8rem;color:var(--text-muted);">${noCount} declined</span>`;
   } else if (noCount) {
-    statusChips = `<span style="font-size:0.8rem;color:var(--text-muted);">${noCount} no</span>`;
+    statusChips = `<span class="needs-sub-badge">⚠ Needs sub · ${noCount} declined</span>`;
+  } else if (!req.completed) {
+    statusChips = `<span class="needs-sub-badge">⚠ Needs sub</span>`;
   }
 
+  const borderColor = req.completed ? '#aaa' : (confirmed ? 'var(--green)' : '#f59e0b');
+  const bgColor = req.completed ? '#fafafa' : (confirmed ? '#f0f7f1' : '#fffbeb');
+  const cardOpacity = req.completed ? 'opacity:0.75;' : '';
+
   return `
-    <div class="card" style="padding:0;border-left:4px solid ${req.completed?'#aaa':'var(--green)'};${req.completed?'opacity:0.75;background:#fafafa;':'background:#f0f7f1;'}margin-bottom:0.75rem;">
+    <div class="card" style="padding:0;border-left:4px solid ${borderColor};${cardOpacity}background:${bgColor};margin-bottom:0.75rem;">
       <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:0.85rem 1.1rem 0.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:0.95rem;">${titleLine}${typePart}</div>
@@ -1902,6 +1945,10 @@ function reqCard(req) {
       </div>
       ${req.open ? `
       <div style="padding:0 1.1rem 1.1rem;border-top:1px solid var(--border);">
+        ${!req.completed ? `<div style="display:flex;justify-content:flex-end;gap:0.4rem;padding:0.5rem 0 0.65rem;border-bottom:1px solid var(--border);margin-bottom:0.1rem;">
+          <button class="btn btn-green btn-sm" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation();markComplete('${req.id}')">✓ Mark Complete</button>
+          <button class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:3px 10px;color:var(--red);border-color:var(--red);" onclick="event.stopPropagation();deleteSubRequest('${req.id}')">Delete</button>
+        </div>` : ''}
         <div class="sub-class-form" style="margin-top:0.9rem;">
           <div class="form-group">
             <label>Date</label>
