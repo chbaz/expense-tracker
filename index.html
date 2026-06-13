@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#9b6b47">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Studio Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -30,7 +32,7 @@
   --shadow: 0 1px 3px rgba(44,36,32,0.08), 0 4px 16px rgba(44,36,32,0.04);
   --radius: 10px;
   --radius-sm: 6px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -337,6 +339,7 @@ textarea { resize: vertical; min-height: 72px; }
 .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
 .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 .empty-state p { font-size: 14px; }
+.empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 
 /* ── Totals row ── */
 .totals-row {
@@ -604,6 +607,36 @@ textarea { resize: vertical; min-height: 72px; }
 .history-pill.synced  { background:var(--green-light); color:var(--green); }
 .history-pill.skipped { background:var(--surface-warm); color:var(--text-muted); }
 .history-pill.failed  { background:var(--red-light); color:var(--red); }
+
+/* ── View transitions ── */
+.view.active { animation: viewFadeIn 0.18s ease; }
+@keyframes viewFadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── Empty states ── */
+.empty-state { text-align:center; padding:3rem 1rem; color:var(--text-muted); }
+.empty-icon { font-size:2.5rem; margin-bottom:0.75rem; }
+.empty-state p { font-size:0.9rem; margin-top:0.35rem; }
+
+/* ── Skeletons ── */
+.skel { background:linear-gradient(90deg, var(--surface-warm) 25%, #ede8e2 50%, var(--surface-warm) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-sm); }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.skel-card { height:76px; margin-bottom:0.75rem; border-radius:var(--radius); }
+.skel-stat { height:72px; border-radius:var(--radius); }
+
+/* ── Category breakdown bars ── */
+.cat-breakdown { margin-top:1.1rem; }
+.cat-breakdown-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.75rem; }
+.cat-bar-row { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.55rem; }
+.cat-bar-label { font-size:0.8rem; font-weight:500; min-width:100px; }
+.cat-bar-track { flex:1; height:7px; background:var(--border); border-radius:4px; overflow:hidden; }
+.cat-bar-fill { height:100%; border-radius:4px; }
+.cat-bar-amt { font-size:0.8rem; font-weight:600; min-width:55px; text-align:right; color:var(--text-muted); }
+
+/* ── Templates ── */
+.template-chip { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.65rem; background:var(--surface); border:1px solid var(--border); border-radius:20px; font-size:0.8rem; cursor:pointer; transition:background 0.15s,border-color 0.15s; white-space:nowrap; }
+.template-chip:hover { background:var(--accent-light); border-color:var(--accent); color:var(--accent); }
+.template-chip .del-tpl { color:var(--text-muted); margin-left:2px; font-size:0.9rem; }
+.template-chip .del-tpl:hover { color:var(--red); }
 </style>
 </head>
 <body>
@@ -660,6 +693,7 @@ textarea { resize: vertical; min-height: 72px; }
           <div class="stat-sub" id="dash-hours-count"></div>
         </div>
       </div>
+      <div id="dash-cat-breakdown"></div>
       <div class="recent-label">Recent Entries</div>
       <div id="dash-recent"><div class="spinner"><div class="spin"></div> Loading…</div></div>
     </div>
@@ -800,7 +834,8 @@ textarea { resize: vertical; min-height: 72px; }
         <h2 style="margin:0;">Sub Requests</h2>
         <button class="btn btn-primary" onclick="openNewReqModal()">+ New Request</button>
       </div>
-      <div id="sub-requests-list"></div>
+      <div id="sub-templates"></div>
+      <div id="sub-requests-list"><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
       <div class="card" style="padding:0;">
         <div onclick="toggleInstructorList()" style="cursor:pointer;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;">
           <p class="sub-section-label" style="margin:0;">Instructor List</p>
@@ -1274,7 +1309,8 @@ function getDashRange() {
 
 async function renderDashboard() {
   const { from, to } = getDashRange();
-  document.getElementById('dash-recent').innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  document.getElementById('dash-recent').innerHTML = '<div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card" style="height:48px;"></div>';
+  document.getElementById('dash-cat-breakdown').innerHTML = '';
 
   const entries = await fetchEntries({ from, to });
   const expenses = entries.filter(e => e.type === 'expense');
@@ -1285,10 +1321,26 @@ async function renderDashboard() {
   document.getElementById('dash-total-hours').textContent = fmtHrs(hours.reduce((s,e) => s + Number(e.hours), 0));
   document.getElementById('dash-hours-count').textContent = `${hours.length} entr${hours.length === 1 ? 'y' : 'ies'}`;
 
+  // Category breakdown
+  const catTotals = {};
+  expenses.forEach(e => {
+    const k = e.category || 'other';
+    catTotals[k] = (catTotals[k] || 0) + Number(e.amount);
+  });
+  const maxCat = Math.max(0, ...Object.values(catTotals));
+  const CAT_COLORS = ['#9b6b47','#b45309','#6d28d9','#0f766e','#b91c1c'];
+  const catHtml = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).map(([k,v],i) => `
+    <div class="cat-bar-row">
+      <span class="cat-bar-label">${CAT_LABELS[k]||k}</span>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${maxCat?Math.round(v/maxCat*100):0}%;background:${CAT_COLORS[i%CAT_COLORS.length]};"></div></div>
+      <span class="cat-bar-amt">${fmt$(v)}</span>
+    </div>`).join('');
+  document.getElementById('dash-cat-breakdown').innerHTML = expenses.length ? `<div class="cat-breakdown"><div class="cat-breakdown-title">Expenses by Category</div>${catHtml}</div>` : '';
+
   const recent = entries.slice(0, 5);
   document.getElementById('dash-recent').innerHTML = recent.length
     ? renderEntryRows(recent, false)
-    : `<div class="empty-state"><div class="icon">📋</div><p>No entries for this period.</p></div>`;
+    : `<div class="empty-state"><div class="empty-icon">📋</div><p>No entries for this period.</p></div>`;
 }
 
 // ── Formatting ────────────────────────────────────────────────────
@@ -1300,7 +1352,7 @@ const CAT_LABELS = { water:'Water', supplies:'Supplies', personal_care:'Personal
 
 // ── Render rows ───────────────────────────────────────────────────
 function renderEntryRows(entries, showActions = true) {
-  if (!entries.length) return `<div class="empty-state"><div class="icon">📋</div><p>No entries found.</p></div>`;
+  if (!entries.length) return `<div class="empty-state"><div class="empty-icon">📋</div><p>No entries found.</p></div>`;
   return entries.map(e => {
     const isExp = e.type === 'expense';
     const actions = showActions ? `
@@ -1625,6 +1677,17 @@ function toast(msg) {
 }
 
 // ── Sub Finder ────────────────────────────────────────────────────
+const CLASS_COLORS = {
+  Pilates: { text:'#6d28d9', bg:'#f5f3ff', border:'#ddd6fe' },
+  Yin:     { text:'#0f766e', bg:'#f0fdfa', border:'#99f6e4' },
+  Bikram:  { text:'#b45309', bg:'#fffbeb', border:'#fde68a' },
+  Sumits:  { text:'#b91c1c', bg:'#fef2f2', border:'#fecaca' },
+};
+function classTypeStyle(type) {
+  const c = CLASS_COLORS[type];
+  if (!c) return '';
+  return `background:${c.bg};color:${c.text};border:1px solid ${c.border};`;
+}
 const CATEGORIES = ['Pilates', 'Yin', 'Bikram', 'Sumits'];
 
 const DEFAULT_INSTRUCTORS = [
@@ -1644,6 +1707,61 @@ function normalizeCategories(cats) {
 
 let instructors = [];
 let subRequests = [];
+let instructorNotes = JSON.parse(localStorage.getItem('inst_notes_v1') || '{}');
+function saveInstructorNote(id, note) {
+  instructorNotes[id] = note;
+  localStorage.setItem('inst_notes_v1', JSON.stringify(instructorNotes));
+}
+
+let templates = JSON.parse(localStorage.getItem('sub_tpl_v1') || '[]');
+function saveTemplates() { localStorage.setItem('sub_tpl_v1', JSON.stringify(templates)); }
+function addTemplate(name, time, location, classType) {
+  if (!name) return;
+  templates.push({ id: Date.now().toString(), name, time, location, classType });
+  saveTemplates();
+  renderTemplates();
+}
+function deleteTemplate(id) {
+  templates = templates.filter(t => t.id !== id);
+  saveTemplates();
+  renderTemplates();
+}
+function createReqFromTemplate(id) {
+  const tpl = templates.find(t => t.id === id);
+  if (!tpl) return;
+  const req = { id: Date.now().toString(), date: today(), time: tpl.time, location: tpl.location, classType: tpl.classType, originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false, scheduleUpdated: false };
+  subRequests.unshift(req);
+  saveSubRequests();
+  renderSubView();
+  toast(`Request created from "${tpl.name}"`);
+}
+function renderTemplates() {
+  const el = document.getElementById('sub-templates');
+  if (!el) return;
+  const chips = templates.map(t => {
+    const cc = CLASS_COLORS[t.classType];
+    const style = cc ? `border-color:${cc.border};` : '';
+    return `<span class="template-chip" style="${style}" onclick="createReqFromTemplate('${t.id}')">
+      ${t.classType ? `<span style="font-size:0.7rem;font-weight:700;${cc?`color:${cc.text}`:''}">${t.classType}</span> · ` : ''}${t.name}
+      <span class="del-tpl" onclick="event.stopPropagation();deleteTemplate('${t.id}')" title="Delete template">×</span>
+    </span>`;
+  }).join('');
+  el.innerHTML = `<div class="card" style="padding:0.85rem 1.1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${templates.length?'0.65rem':'0'};">
+      <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Quick Templates</span>
+      <button class="status-btn" onclick="openAddTemplateModal()" style="font-size:0.75rem;">+ Add</button>
+    </div>
+    ${templates.length ? `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${chips}</div>` : '<div style="font-size:0.8rem;color:var(--text-muted);">No templates yet — tap + Add to create one.</div>'}
+  </div>`;
+}
+function openAddTemplateModal() {
+  const name = prompt('Template name (e.g. "Tuesday 6AM Pilates"):');
+  if (!name) return;
+  const classType = prompt('Class type (Pilates/Yin/Bikram/Sumits or leave blank):') || '';
+  const time = prompt('Time (e.g. 06:00) or leave blank:') || '';
+  const location = prompt('Location (Shea/McDowell or leave blank):') || '';
+  addTemplate(name.trim(), time.trim(), location.trim(), classType.trim());
+}
 
 async function saveInstructors() {
   await db.from('sub_instructors').upsert(
@@ -1899,6 +2017,8 @@ function copyText(text, badgeId) {
 function instRow(reqId, inst, s) {
   const req = subRequests.find(r => r.id === reqId);
   const crossed = req && req.crossedOut.includes(inst.id);
+  const subCount = subRequests.filter(r => r.completed && r.statuses[inst.id] === 'confirmed').length;
+  const noteText = instructorNotes[inst.id] || '';
 
   const STATUS_STYLES = {
     asked:     'background:#fff3cd;border-color:#d4a017;color:#7a5c00;',
@@ -1924,7 +2044,10 @@ function instRow(reqId, inst, s) {
   }
 
   return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}" ${crossed?'style="opacity:0.4;"':''}>
-    <span class="instructor-name" onclick="toggleCrossed('${reqId}','${inst.id}')" style="cursor:pointer;${crossed?'text-decoration:line-through;':''}">${inst.name}</span>
+    <div onclick="toggleCrossed('${reqId}','${inst.id}')" style="cursor:pointer;flex:1;min-width:0;">
+      <div style="${crossed?'text-decoration:line-through;':''};font-weight:500;">${inst.name}${subCount ? `<span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.35rem;">${subCount}✓</span>` : ''}</div>
+      ${noteText ? `<div style="font-size:0.71rem;color:var(--text-muted);">${noteText}</div>` : ''}
+    </div>
     <div class="status-btns">
       <button class="status-btn" style="${btnStyle}" onclick="cycleStatus('${reqId}','${inst.id}')">${btnLabel}</button>
       ${copyBtn}
@@ -2012,7 +2135,7 @@ function reqCard(req) {
   const datePart = req.date ? fmtDate(req.date) : '';
   const timePart = req.time ? fmtTime(req.time) : '';
   const locPart = req.location || '';
-  const typePart = req.classType ? `<span style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);margin-left:0.4rem;">${req.classType}</span>` : '';
+  const typePart = req.classType ? `<span style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:0.4rem;${classTypeStyle(req.classType)||'background:var(--accent-light);color:var(--accent);'}">${req.classType}</span>` : '';
   const titleLine = [datePart, timePart, locPart].filter(Boolean).join(' · ') || 'New Request';
 
   // Status chips for collapsed row
@@ -2130,7 +2253,7 @@ function renderSubRequests() {
 
   let html = '';
   if (!active.length) {
-    html += '<div class="card" style="color:var(--text-muted);text-align:center;padding:2rem;">No open requests. Tap + New Request to start.</div>';
+    html += '<div class="empty-state"><div class="empty-icon">🔄</div><p>No open sub requests.</p><p style="font-size:0.8rem;margin-top:0.25rem;">Tap <strong>+ New Request</strong> to get started.</p></div>';
   } else {
     html += active.map(reqCard).join('');
   }
@@ -2174,22 +2297,25 @@ function renderGlobalInstructors() {
   }
   el.innerHTML = [...instructors].sort((a,b) => a.name.localeCompare(b.name)).map(inst => {
     const cats = inst.categories || [];
+    const subCount = subRequests.filter(r => r.completed && r.statuses[inst.id] === 'confirmed').length;
     const catTags = CATEGORIES.map(c => {
       const active = cats.includes(c);
-      const cls = c.toLowerCase();
-      return `<button class="cat-btn ${active ? 'active' : ''}" onclick="toggleCategory('${inst.id}','${c}')" style="${active ? `background:var(--accent);border-color:var(--accent);color:#fff` : ''}">${c}</button>`;
+      const cc = CLASS_COLORS[c];
+      return `<button class="cat-btn ${active ? 'active' : ''}" onclick="toggleCategory('${inst.id}','${c}')" style="${active && cc ? `background:${cc.bg};border-color:${cc.border};color:${cc.text};font-weight:700;` : active ? `background:var(--accent);border-color:var(--accent);color:#fff;` : ''}">${c}</button>`;
     }).join('');
     return `<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
-        <span style="font-weight:500;">${inst.name}</span>
+        <span style="font-weight:500;">${inst.name}</span>${subCount ? `<span style="font-size:0.72rem;color:var(--text-muted);margin-left:0.4rem;">${subCount} sub${subCount>1?'s':''}</span>` : ''}
         <button class="status-btn" onclick="removeInstructor('${inst.id}')" style="color:var(--red)">Remove</button>
       </div>
       <div class="cat-filter-bar">${catTags}</div>
+      <input type="text" placeholder="Notes (e.g. prefers texts, no Sundays…)" value="${(instructorNotes[inst.id]||'').replace(/"/g,'&quot;')}" oninput="saveInstructorNote('${inst.id}',this.value)" style="margin-top:0.4rem;width:100%;font-size:0.8rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-warm);color:var(--text-muted);">
     </div>`;
   }).join('');
 }
 
 function renderSubView() {
+  renderTemplates();
   renderSubRequests();
   renderGlobalInstructors();
 }
