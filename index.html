@@ -42,7 +42,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -2253,11 +2253,14 @@ function reqCard(req) {
     <div class="card" style="padding:0;border-left:4px solid ${borderColor};${cardOpacity}background:${bgColor};margin-bottom:0.75rem;">
       <div onclick="toggleRequest('${req.id}')" style="cursor:pointer;padding:0.85rem 1.1rem 0.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.95rem;">${titleLine}${typePart}</div>
+          <div style="font-weight:600;font-size:0.95rem;">${titleLine}</div>
           ${statusChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;margin-top:0.45rem;">${statusChips}</div>` : ''}
           ${req.notes ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;font-style:italic;">${req.notes}</div>` : ''}
         </div>
-        <span style="color:var(--text-muted);font-size:1rem;padding-top:2px;">${req.open ? '▲' : '▼'}</span>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;padding-top:1px;">
+          ${typePart}
+          <span style="color:var(--text-muted);font-size:1rem;">${req.open ? '▲' : '▼'}</span>
+        </div>
       </div>
       ${req.open ? `
       <div style="padding:0 1.1rem 1.1rem;border-top:1px solid var(--border);">
