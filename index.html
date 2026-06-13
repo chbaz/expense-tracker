@@ -608,6 +608,15 @@ textarea { resize: vertical; min-height: 72px; }
 .history-pill.skipped { background:var(--surface-warm); color:var(--text-muted); }
 .history-pill.failed  { background:var(--red-light); color:var(--red); }
 
+/* ── Status option buttons ── */
+.status-opts { display:flex; gap:3px; flex-wrap:wrap; }
+.status-opt { padding:3px 9px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.73rem; font-weight:600; cursor:pointer; background:var(--surface); color:var(--text-muted); transition:all 0.12s; white-space:nowrap; }
+.status-opt:hover { border-color:var(--text-muted); color:var(--text); }
+.status-opt.s-asked   { background:#fff3cd;border-color:#d4a017;color:#7a5c00; }
+.status-opt.s-maybe   { background:#e8f0fe;border-color:#4a7fd4;color:#2a5aaa; }
+.status-opt.s-yes     { background:var(--green-light);border-color:var(--green);color:var(--green); }
+.status-opt.s-no      { background:var(--red-light);border-color:var(--red);color:var(--red); }
+
 /* ── View transitions ── */
 .view.active { animation: viewFadeIn 0.18s ease; }
 @keyframes viewFadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
@@ -2024,21 +2033,20 @@ function copyText(text, badgeId) {
   });
 }
 
+function setStatus(reqId, instId, val) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  req.statuses[instId] = req.statuses[instId] === val ? null : val;
+  saveSubRequests();
+  renderRequestInstructors(reqId);
+  renderRequestTexts(reqId);
+}
+
 function instRow(reqId, inst, s) {
   const req = subRequests.find(r => r.id === reqId);
   const crossed = req && req.crossedOut.includes(inst.id);
   const subCount = subRequests.filter(r => r.completed && r.statuses[inst.id] === 'confirmed').length;
   const noteText = instructorNotes[inst.id] || '';
-
-  const STATUS_STYLES = {
-    asked:     'background:#fff3cd;border-color:#d4a017;color:#7a5c00;',
-    maybe:     'background:#e8f0fe;border-color:#4a7fd4;color:#2a5aaa;',
-    no:        'background:var(--red-light);border-color:var(--red);color:var(--red);',
-    confirmed: 'background:var(--green-light);border-color:var(--green);color:var(--green);',
-  };
-  const STATUS_LABELS = { asked:'Asked', maybe:'Maybe', no:'No', confirmed:'✓ Yes' };
-  const btnStyle = s ? STATUS_STYLES[s] : '';
-  const btnLabel = s ? STATUS_LABELS[s] : '+ Ask';
 
   let copyBtn = '';
   if (req && (s === 'asked' || s === 'maybe')) {
@@ -2053,13 +2061,18 @@ function instRow(reqId, inst, s) {
     copyBtn = `<button class="status-btn" style="padding:0.3rem 0.55rem;background:var(--green-light);border-color:var(--green);color:var(--green);" onclick="copyText(\`${escaped}\`,'${bid}')" title="Copy reminder">📋</button><span class="copied-badge" id="${bid}">✓</span>`;
   }
 
-  return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}" ${crossed?'style="opacity:0.4;"':''}>
+  return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}" style="${crossed?'opacity:0.4;':''}padding:0.55rem 0;">
     <div onclick="toggleCrossed('${reqId}','${inst.id}')" style="cursor:pointer;flex:1;min-width:0;">
-      <div style="${crossed?'text-decoration:line-through;':''};font-weight:500;">${inst.name}${subCount ? `<span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.35rem;">${subCount}✓</span>` : ''}</div>
+      <div style="${crossed?'text-decoration:line-through;':''}font-weight:500;">${inst.name}${subCount ? `<span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.35rem;">${subCount}✓</span>` : ''}</div>
       ${noteText ? `<div style="font-size:0.71rem;color:var(--text-muted);">${noteText}</div>` : ''}
     </div>
-    <div class="status-btns">
-      <button class="status-btn" style="${btnStyle}" onclick="cycleStatus('${reqId}','${inst.id}')">${btnLabel}</button>
+    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
+      <div class="status-opts">
+        <button class="status-opt${s==='asked'?' s-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Ask</button>
+        <button class="status-opt${s==='maybe'?' s-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
+        <button class="status-opt${s==='confirmed'?' s-yes':''}" onclick="setStatus('${reqId}','${inst.id}','confirmed')">Yes</button>
+        <button class="status-opt${s==='no'?' s-no':''}" onclick="setStatus('${reqId}','${inst.id}','no')">No</button>
+      </div>
       ${copyBtn}
     </div>
   </div>`;
@@ -2091,20 +2104,7 @@ function renderRequestInstructors(reqId) {
 
   const withStatus = list.filter(i => req.statuses[i.id]);
   const unasked = list.filter(i => !req.statuses[i.id]);
-  const THRESHOLD = 4;
-
-  let html = withStatus.map(i => instRow(reqId, i, req.statuses[i.id])).join('');
-
-  if (unasked.length <= THRESHOLD) {
-    html += unasked.map(i => instRow(reqId, i, null)).join('');
-  } else {
-    html += unasked.slice(0, THRESHOLD).map(i => instRow(reqId, i, null)).join('');
-    const hiddenCount = unasked.length - THRESHOLD;
-    html += `<div id="inst-more-${reqId}" style="display:none;">${unasked.slice(THRESHOLD).map(i => instRow(reqId, i, null)).join('')}</div>`;
-    html += `<button class="status-btn" id="show-more-btn-${reqId}" style="width:100%;margin-top:0.35rem;display:block;text-align:center;" onclick="toggleMoreInst('${reqId}',${hiddenCount})">+ ${hiddenCount} more to ask</button>`;
-  }
-
-  el.innerHTML = html;
+  el.innerHTML = [...withStatus, ...unasked].map(i => instRow(reqId, i, req.statuses[i.id] || null)).join('');
 }
 
 function toggleMoreInst(reqId, count) {
