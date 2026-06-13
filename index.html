@@ -1783,13 +1783,11 @@ function saveInstructorNote(id, note) {
 }
 
 let templates = JSON.parse(localStorage.getItem('sub_tpl_v1') || '[]');
-let scheduleUpdatedState = JSON.parse(localStorage.getItem('sched_updated_v1') || '{}');
-function saveScheduleUpdatedState() { localStorage.setItem('sched_updated_v1', JSON.stringify(scheduleUpdatedState)); }
-let reminderScheduledState = JSON.parse(localStorage.getItem('reminder_sched_v1') || '{}');
-function saveReminderScheduledState() { localStorage.setItem('reminder_sched_v1', JSON.stringify(reminderScheduledState)); }
 function toggleReminderScheduled(reqId) {
-  reminderScheduledState[reqId] = !reminderScheduledState[reqId];
-  saveReminderScheduledState();
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  req.statuses['__reminderScheduled'] = !req.statuses['__reminderScheduled'];
+  saveSubRequests();
   renderSubView();
 }
 function saveTemplates() { localStorage.setItem('sub_tpl_v1', JSON.stringify(templates)); }
@@ -2017,8 +2015,10 @@ function reopenRequest(id) {
 }
 
 function toggleScheduleUpdated(reqId) {
-  scheduleUpdatedState[reqId] = !scheduleUpdatedState[reqId];
-  saveScheduleUpdatedState();
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  req.statuses['__scheduleUpdated'] = !req.statuses['__scheduleUpdated'];
+  saveSubRequests();
   renderSubView();
 }
 
@@ -2208,7 +2208,7 @@ function renderRequestTexts(reqId) {
   const bid = `rem-${reqId}`;
   const txt = buildReminderText(confirmed.name, req);
   const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
-  const remSched = reminderScheduledState[reqId];
+  const remSched = req.statuses['__reminderScheduled'];
   el.innerHTML = `<p class="sub-section-label" style="margin-top:1.25rem;">Reminder for ${confirmed.name}</p>
     <div class="text-preview">${txt}</div>
     <div class="copy-row">
@@ -2236,12 +2236,12 @@ function reqCard(req) {
     const bid = `rem-${req.id}-q`;
     const txt = buildReminderText(confirmed.name, req);
     const esc = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
-    const remSched = reminderScheduledState[req.id];
+    const remSched = req.statuses['__reminderScheduled'];
     statusChips = `<span style="color:var(--green);font-weight:600;font-size:0.82rem;">✓ ${confirmed.name}</span>
       ${!remSched ? `<button class="btn btn-green btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Reminder</button>
       <span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>` : ''}
       <button class="btn btn-sm" onclick="event.stopPropagation();toggleReminderScheduled('${req.id}')" style="padding:4px 10px;font-size:0.75rem;background:${remSched ? 'var(--green-light)' : 'var(--surface)'};color:${remSched ? 'var(--green)' : 'var(--text-muted)'};border:1px solid ${remSched ? 'var(--green)' : 'var(--border)'};">${remSched ? '✓ Reminder Scheduled' : 'Reminder Scheduled'}</button>
-      ${!scheduleUpdatedState[req.id] && !req.completed ? '<span style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">☐ update schedule</span>' : ''}`;
+      ${!req.statuses['__scheduleUpdated'] && !req.completed ? '<span style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">☐ update schedule</span>' : ''}`;
   } else if (askedInsts.length) {
     statusChips = askedInsts.map(inst => {
       const bid = `ask-${req.id}-${inst.id}-q`;
@@ -2321,10 +2321,10 @@ function reqCard(req) {
         ${!req.completed ? `<p class="sub-section-label" style="margin-top:1.1rem;">Instructors</p>
         <div id="inst-list-${req.id}"></div>
         <div id="texts-${req.id}"></div>` : ''}
-        ${confirmed ? `<button type="button" onclick="toggleScheduleUpdated('${req.id}')" style="width:100%;display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding:0.6rem 0.75rem;border-radius:var(--radius-sm);background:${scheduleUpdatedState[req.id] ? 'var(--green-light)' : '#fffbeb'};border:1px solid ${scheduleUpdatedState[req.id] ? 'var(--green)' : '#fcd34d'};cursor:pointer;user-select:none;text-align:left;font-family:inherit;">
-          <span style="font-size:1.1rem;line-height:1;">${scheduleUpdatedState[req.id] ? '☑' : '☐'}</span>
-          <span style="font-size:0.875rem;font-weight:${scheduleUpdatedState[req.id] ? '400' : '600'};color:${scheduleUpdatedState[req.id] ? 'var(--green)' : '#92400e'};${scheduleUpdatedState[req.id] ? 'text-decoration:line-through;' : ''}">Updated schedule online</span>
-          ${!scheduleUpdatedState[req.id] ? '<span style="font-size:0.72rem;color:#92400e;margin-left:auto;">tap to check off</span>' : ''}
+        ${confirmed ? `<button type="button" onclick="toggleScheduleUpdated('${req.id}')" style="width:100%;display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding:0.6rem 0.75rem;border-radius:var(--radius-sm);background:${req.statuses['__scheduleUpdated'] ? 'var(--green-light)' : '#fffbeb'};border:1px solid ${req.statuses['__scheduleUpdated'] ? 'var(--green)' : '#fcd34d'};cursor:pointer;user-select:none;text-align:left;font-family:inherit;">
+          <span style="font-size:1.1rem;line-height:1;">${req.statuses['__scheduleUpdated'] ? '☑' : '☐'}</span>
+          <span style="font-size:0.875rem;font-weight:${req.statuses['__scheduleUpdated'] ? '400' : '600'};color:${req.statuses['__scheduleUpdated'] ? 'var(--green)' : '#92400e'};${req.statuses['__scheduleUpdated'] ? 'text-decoration:line-through;' : ''}">Updated schedule online</span>
+          ${!req.statuses['__scheduleUpdated'] ? '<span style="font-size:0.72rem;color:#92400e;margin-left:auto;">tap to check off</span>' : ''}
         </button>` : ''}
         <div class="form-group" style="margin-top:1rem;">
           <label>Notes</label>
