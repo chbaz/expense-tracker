@@ -2310,11 +2310,11 @@ function reqCard(req) {
         ${!req.completed ? `<p class="sub-section-label" style="margin-top:1.1rem;">Instructors</p>
         <div id="inst-list-${req.id}"></div>
         <div id="texts-${req.id}"></div>` : ''}
-        ${confirmed ? `<div onclick="toggleScheduleUpdated('${req.id}')" style="display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding:0.6rem 0.75rem;border-radius:var(--radius-sm);background:${scheduleUpdatedState[req.id] ? 'var(--green-light)' : '#fffbeb'};border:1px solid ${scheduleUpdatedState[req.id] ? 'var(--green)' : '#fcd34d'};cursor:pointer;user-select:none;">
+        ${confirmed ? `<button type="button" onclick="toggleScheduleUpdated('${req.id}')" style="width:100%;display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding:0.6rem 0.75rem;border-radius:var(--radius-sm);background:${scheduleUpdatedState[req.id] ? 'var(--green-light)' : '#fffbeb'};border:1px solid ${scheduleUpdatedState[req.id] ? 'var(--green)' : '#fcd34d'};cursor:pointer;user-select:none;text-align:left;font-family:inherit;">
           <span style="font-size:1.1rem;line-height:1;">${scheduleUpdatedState[req.id] ? '☑' : '☐'}</span>
           <span style="font-size:0.875rem;font-weight:${scheduleUpdatedState[req.id] ? '400' : '600'};color:${scheduleUpdatedState[req.id] ? 'var(--green)' : '#92400e'};${scheduleUpdatedState[req.id] ? 'text-decoration:line-through;' : ''}">Updated schedule online</span>
           ${!scheduleUpdatedState[req.id] ? '<span style="font-size:0.72rem;color:#92400e;margin-left:auto;">tap to check off</span>' : ''}
-        </div>` : ''}
+        </button>` : ''}
         <div class="form-group" style="margin-top:1rem;">
           <label>Notes</label>
           <textarea rows="2" placeholder="Any notes…" oninput="updateReqField('${req.id}','notes',this.value)" style="resize:vertical;">${req.notes||''}</textarea>
