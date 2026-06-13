@@ -16,9 +16,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --bg: #faf8f5;
+  --bg: #f5f5f4;
   --surface: #ffffff;
-  --surface-warm: #f7f3ee;
+  --surface-warm: #f0ede8;
   --border: #e8e1d9;
   --text: #2c2420;
   --text-muted: #8a7e78;
@@ -1856,7 +1856,7 @@ async function saveSubRequests() {
       date: r.date, time: r.time, location: r.location,
       class_type: r.classType, original_instructor: r.originalInstructor,
       crossed_out: r.crossedOut, statuses: r.statuses,
-      notes: r.notes || '', open: r.open, completed: r.completed || false,
+      notes: r.notes || '', open: false, completed: r.completed || false,
       schedule_updated: r.scheduleUpdated || false
     })),
     { onConflict: 'id' }
@@ -1890,7 +1890,7 @@ async function loadSubData() {
       location: r.location || '', classType: r.class_type || '',
       originalInstructor: r.original_instructor || '',
       crossedOut: r.crossed_out || [], statuses: r.statuses || {},
-      notes: r.notes || '', open: r.open !== false, completed: r.completed || false,
+      notes: r.notes || '', open: false, completed: r.completed || false,
       scheduleUpdated: r.schedule_updated || false
     }));
   } else {
