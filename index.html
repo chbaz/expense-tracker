@@ -655,8 +655,35 @@ textarea { resize: vertical; min-height: 72px; }
 </head>
 <body>
 
+<!-- ── Login screen ── -->
+<div id="login-screen" style="display:none;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);">
+  <div style="width:100%;max-width:360px;">
+    <div style="text-align:center;margin-bottom:2rem;">
+      <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;">Studio Tracker</div>
+      <div style="font-size:1.5rem;font-weight:700;letter-spacing:-0.03em;color:var(--text);">Welcome back</div>
+      <div style="font-size:0.875rem;color:var(--text-muted);margin-top:0.3rem;">Sign in to your studio account</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.75rem;box-shadow:var(--shadow);">
+      <div id="auth-mode-tabs" style="display:flex;gap:2px;background:var(--surface-warm);border-radius:var(--radius-sm);padding:3px;margin-bottom:1.5rem;">
+        <button onclick="setAuthMode('signin')" id="tab-signin" style="flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);">Sign In</button>
+        <button onclick="setAuthMode('signup')" id="tab-signup" style="flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);">Create Account</button>
+      </div>
+      <div class="form-group" style="margin-bottom:0.85rem;">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@studio.com" autocomplete="email" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin-bottom:1.25rem;">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" style="width:100%;" onkeydown="if(event.key==='Enter')submitAuth()">
+      </div>
+      <div id="auth-error" style="display:none;font-size:0.8rem;color:var(--red);margin-bottom:0.85rem;padding:0.5rem 0.75rem;background:var(--red-light);border-radius:var(--radius-sm);"></div>
+      <button onclick="submitAuth()" id="auth-submit-btn" style="width:100%;padding:0.7rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:0.95rem;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:-0.01em;">Sign In</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── App ── -->
-<div id="app">
+<div id="app" style="display:none;">
   <header>
     <div class="header-inner">
       <div class="logo">🌿 Studio Tracker</div>
@@ -673,6 +700,8 @@ textarea { resize: vertical; min-height: 72px; }
         <div class="gear-dropdown" id="gear-dropdown">
           <button data-view="export" onclick="showView('export')">📊 Export</button>
           <button data-view="sync" onclick="showView('sync')">📡 Sync</button>
+          <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
+          <button onclick="signOut()" style="color:var(--red);">Sign Out</button>
         </div>
       </div>
     </div>
@@ -1855,21 +1884,23 @@ function saveTemplateFromModal() {
 }
 
 async function saveInstructors() {
+  if (!currentUser) return;
   await db.from('sub_instructors').upsert(
-    instructors.map(i => ({ id: i.id, name: i.name, categories: i.categories || [], notes: instructorNotes[i.id] || '' })),
+    instructors.map(i => ({ id: i.id, name: i.name, categories: i.categories || [], notes: instructorNotes[i.id] || '', user_id: currentUser.id })),
     { onConflict: 'id' }
   );
 }
 
 async function saveSubRequests() {
-  if (!subRequests.length) return;
+  if (!subRequests.length || !currentUser) return;
   const { error } = await db.from('sub_requests').upsert(
     subRequests.map(r => ({
       id: r.id,
       date: r.date, time: r.time, location: r.location,
       class_type: r.classType, original_instructor: r.originalInstructor,
       crossed_out: r.crossedOut, statuses: r.statuses,
-      notes: r.notes || '', open: false, completed: r.completed || false
+      notes: r.notes || '', open: false, completed: r.completed || false,
+      user_id: currentUser.id
     })),
     { onConflict: 'id' }
   );
@@ -1878,8 +1909,8 @@ async function saveSubRequests() {
 
 async function loadSubData() {
   const [{ data: dbInst }, { data: dbReqs }] = await Promise.all([
-    db.from('sub_instructors').select('*'),
-    db.from('sub_requests').select('*')
+    db.from('sub_instructors').select('*').eq('user_id', currentUser.id),
+    db.from('sub_requests').select('*').eq('user_id', currentUser.id)
   ]);
 
   if (dbInst && dbInst.length > 0) {
@@ -3162,12 +3193,83 @@ async function initInstructorPortal(token) {
   renderPortal();
 }
 
+// ── Auth ──────────────────────────────────────────────────────────
+let currentUser = null;
+let _authMode = 'signin';
+
+function setAuthMode(mode) {
+  _authMode = mode;
+  document.getElementById('tab-signin').style.cssText = mode === 'signin'
+    ? 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);'
+    : 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);';
+  document.getElementById('tab-signup').style.cssText = mode === 'signup'
+    ? 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);'
+    : 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);';
+  document.getElementById('auth-submit-btn').textContent = mode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-password').autocomplete = mode === 'signin' ? 'current-password' : 'new-password';
+}
+
+async function submitAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit-btn');
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  btn.textContent = '…'; btn.disabled = true;
+  const fn = _authMode === 'signin' ? db.auth.signInWithPassword : db.auth.signUp;
+  const { error } = await fn.call(db.auth, { email, password });
+  btn.disabled = false;
+  setAuthMode(_authMode);
+  if (error) { showAuthError(error.message); return; }
+  if (_authMode === 'signup') showAuthError('Check your email to confirm your account, then sign in.', true);
+}
+
+function showAuthError(msg, isInfo = false) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.color = isInfo ? 'var(--green)' : 'var(--red)';
+  el.style.background = isInfo ? 'var(--green-light)' : 'var(--red-light)';
+}
+
+async function signOut() {
+  await db.auth.signOut();
+}
+
+async function claimExistingData(userId) {
+  await Promise.all([
+    db.from('sub_instructors').update({ user_id: userId }).is('user_id', null),
+    db.from('sub_requests').update({ user_id: userId }).is('user_id', null)
+  ]);
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
 // ── App router ────────────────────────────────────────────────────
 const _portalToken = new URLSearchParams(location.search).get('instructor');
 if (_portalToken) {
   initInstructorPortal(_portalToken);
 } else {
-  initApp();
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      currentUser = session.user;
+      await claimExistingData(currentUser.id);
+      showApp();
+      initApp();
+    } else {
+      currentUser = null;
+      showLogin();
+    }
+  });
 }
 </script>
 </body>
