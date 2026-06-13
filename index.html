@@ -2241,7 +2241,8 @@ function reqCard(req) {
       ${!remSched ? `<button class="btn btn-green btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Reminder</button>
       <span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>` : ''}
       <button class="btn btn-sm" onclick="event.stopPropagation();toggleReminderScheduled('${req.id}')" style="padding:4px 10px;font-size:0.75rem;background:${remSched ? 'var(--green-light)' : 'var(--surface)'};color:${remSched ? 'var(--green)' : 'var(--text-muted)'};border:1px solid ${remSched ? 'var(--green)' : 'var(--border)'};">${remSched ? '✓ Reminder Scheduled' : 'Reminder Scheduled'}</button>
-      ${!req.statuses['__scheduleUpdated'] && !req.completed ? '<span style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">☐ update schedule</span>' : ''}`;
+      ${!req.statuses['__scheduleUpdated'] && !req.completed ? `<button class="btn btn-sm" onclick="event.stopPropagation();toggleScheduleUpdated('${req.id}')" style="padding:4px 10px;font-size:0.72rem;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">☐ update schedule</button>` : ''}`;
+
   } else if (askedInsts.length) {
     statusChips = askedInsts.map(inst => {
       const bid = `ask-${req.id}-${inst.id}-q`;
