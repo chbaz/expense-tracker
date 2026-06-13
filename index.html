@@ -1190,6 +1190,61 @@ textarea { resize: vertical; min-height: 72px; }
   </div>
 </div>
 
+<!-- Add Template Modal -->
+<div class="modal-backdrop" id="add-template-modal">
+  <div class="modal" style="max-width:380px;">
+    <h2 style="margin-bottom:1.25rem;">New Template</h2>
+    <div class="form-group">
+      <label>Template Name</label>
+      <input type="text" id="tpl-name" placeholder="e.g. Tuesday 6AM Pilates" maxlength="60">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;margin-top:0.9rem;">
+      <div class="form-group">
+        <label>Class Type</label>
+        <select id="tpl-classType">
+          <option value="">— any —</option>
+          <option value="Pilates">Pilates</option>
+          <option value="Yin">Yin</option>
+          <option value="Bikram">Bikram</option>
+          <option value="Sumits">Sumits</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <select id="tpl-time">
+          <option value="">— any —</option>
+          <option value="05:30">5:30am</option>
+          <option value="07:30">7:30am</option>
+          <option value="08:00">8am</option>
+          <option value="08:45">8:45am</option>
+          <option value="09:15">9:15am</option>
+          <option value="09:30">9:30am</option>
+          <option value="10:00">10am</option>
+          <option value="12:00">12pm</option>
+          <option value="14:00">2pm</option>
+          <option value="16:00">4pm</option>
+          <option value="16:30">4:30pm</option>
+          <option value="17:30">5:30pm</option>
+          <option value="18:00">6pm</option>
+          <option value="19:00">7pm</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <select id="tpl-location">
+          <option value="">— any —</option>
+          <option value="Shea">Shea</option>
+          <option value="McDowell">McDowell</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:1.25rem;">
+      <button class="btn btn-primary" onclick="saveTemplateFromModal()">Save Template</button>
+      <button class="btn btn-secondary" onclick="closeAddTemplateModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal">
@@ -1764,12 +1819,26 @@ function renderTemplates() {
   </div>`;
 }
 function openAddTemplateModal() {
-  const name = prompt('Template name (e.g. "Tuesday 6AM Pilates"):');
-  if (!name) return;
-  const classType = prompt('Class type (Pilates/Yin/Bikram/Sumits or leave blank):') || '';
-  const time = prompt('Time (e.g. 06:00) or leave blank:') || '';
-  const location = prompt('Location (Shea/McDowell or leave blank):') || '';
-  addTemplate(name.trim(), time.trim(), location.trim(), classType.trim());
+  document.getElementById('tpl-name').value = '';
+  document.getElementById('tpl-classType').value = '';
+  document.getElementById('tpl-time').value = '';
+  document.getElementById('tpl-location').value = '';
+  document.getElementById('add-template-modal').classList.add('open');
+  setTimeout(() => document.getElementById('tpl-name').focus(), 50);
+}
+function closeAddTemplateModal() {
+  document.getElementById('add-template-modal').classList.remove('open');
+}
+function saveTemplateFromModal() {
+  const name = document.getElementById('tpl-name').value.trim();
+  if (!name) { toast('Please enter a template name.'); return; }
+  addTemplate(
+    name,
+    document.getElementById('tpl-time').value,
+    document.getElementById('tpl-location').value,
+    document.getElementById('tpl-classType').value
+  );
+  closeAddTemplateModal();
 }
 
 async function saveInstructors() {
