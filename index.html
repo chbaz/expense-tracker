@@ -44,6 +44,9 @@ body {
   min-height: 100vh;
   font-size: 15px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv03" 1, "cv04" 1, "cv11" 1;
 }
 
 /* ── App shell ── */
@@ -68,7 +71,7 @@ header {
   gap: 1rem;
 }
 
-.logo { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; white-space: nowrap; }
+.logo { font-size: 0.95rem; font-weight: 700; color: var(--accent); letter-spacing: -0.03em; white-space: nowrap; text-transform: uppercase; font-size: 0.8rem; }
 
 nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 nav::-webkit-scrollbar { display: none; }
@@ -76,13 +79,14 @@ nav::-webkit-scrollbar { display: none; }
 nav button {
   background: none;
   border: none;
-  padding: 6px 12px;
+  padding: 6px 11px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   white-space: nowrap;
+  letter-spacing: 0.01em;
   transition: background 0.15s, color 0.15s;
 }
 nav button:hover { background: var(--surface-warm); color: var(--text); }
@@ -191,8 +195,8 @@ main {
   box-shadow: var(--shadow);
 }
 
-.stat-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
-.stat-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+.stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 6px; }
+.stat-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; font-feature-settings: "tnum" 1; }
 .stat-card.expenses .stat-value { color: var(--accent); }
 .stat-card.hours .stat-value { color: var(--green); }
 .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -207,13 +211,13 @@ main {
   margin-bottom: 1.5rem;
 }
 
-.card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 1.25rem; }
+.card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; letter-spacing: -0.02em; }
 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-group.full { grid-column: 1 / -1; }
 
-label { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
 
 input[type="text"],
 input[type="number"],
@@ -550,8 +554,8 @@ textarea { resize: vertical; min-height: 72px; }
   opacity: 0; transition: opacity 0.3s;
 }
 .sub-section-label {
-  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.75rem;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text-muted); margin-bottom: 0.75rem;
 }
 .add-instructor-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
 .add-instructor-row input { flex: 1; }
