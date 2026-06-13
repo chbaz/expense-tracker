@@ -3112,6 +3112,9 @@ async function initInstructorPortal(token) {
   const allReqs = (reqData || []).filter(r => {
     if (r.completed) return false;
     if (cats.length && r.class_type && !cats.includes(r.class_type)) return false;
+    // Hide requests already confirmed by someone else
+    const confirmedBy = Object.entries(r.statuses || {}).find(([id, s]) => s === 'confirmed');
+    if (confirmedBy && confirmedBy[0] !== inst.id) return false;
     return true;
   }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
