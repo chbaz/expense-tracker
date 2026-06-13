@@ -1780,6 +1780,7 @@ let instructorNotes = JSON.parse(localStorage.getItem('inst_notes_v1') || '{}');
 function saveInstructorNote(id, note) {
   instructorNotes[id] = note;
   localStorage.setItem('inst_notes_v1', JSON.stringify(instructorNotes));
+  saveInstructors();
 }
 
 let templates = JSON.parse(localStorage.getItem('sub_tpl_v1') || '[]');
@@ -1855,7 +1856,7 @@ function saveTemplateFromModal() {
 
 async function saveInstructors() {
   await db.from('sub_instructors').upsert(
-    instructors.map(i => ({ id: i.id, name: i.name, categories: i.categories || [] })),
+    instructors.map(i => ({ id: i.id, name: i.name, categories: i.categories || [], notes: instructorNotes[i.id] || '' })),
     { onConflict: 'id' }
   );
 }
@@ -1886,6 +1887,7 @@ async function loadSubData() {
     instructors = dbInst.map(r => {
       const normalized = normalizeCategories(r.categories);
       if (normalized.join() !== (r.categories || []).join()) needsSave = true;
+      if (r.notes) instructorNotes[r.id] = r.notes;
       return { id: r.id, name: r.name, categories: normalized };
     });
     if (needsSave) saveInstructors();
