@@ -1561,7 +1561,8 @@ async function saveSubRequests() {
       date: r.date, time: r.time, location: r.location,
       class_type: r.classType, original_instructor: r.originalInstructor,
       crossed_out: r.crossedOut, statuses: r.statuses,
-      notes: r.notes || '', open: r.open, completed: r.completed || false
+      notes: r.notes || '', open: r.open, completed: r.completed || false,
+      schedule_updated: r.scheduleUpdated || false
     })),
     { onConflict: 'id' }
   );
@@ -1594,7 +1595,8 @@ async function loadSubData() {
       location: r.location || '', classType: r.class_type || '',
       originalInstructor: r.original_instructor || '',
       crossedOut: r.crossed_out || [], statuses: r.statuses || {},
-      notes: r.notes || '', open: r.open !== false, completed: r.completed || false
+      notes: r.notes || '', open: r.open !== false, completed: r.completed || false,
+      scheduleUpdated: r.schedule_updated || false
     }));
   } else {
     const stored = JSON.parse(localStorage.getItem('sub_requests') || '[]');
@@ -1652,7 +1654,7 @@ function createReqFromModal() {
     classType: document.getElementById('nr-classType').value,
     originalInstructor: origInstId,
     crossedOut: origInstId ? [origInstId] : [],
-    statuses: {}, notes: '', open: true, completed: false
+    statuses: {}, notes: '', open: true, completed: false, scheduleUpdated: false
   };
   closeNewReqModal();
   subRequests.unshift(req);
@@ -1660,7 +1662,7 @@ function createReqFromModal() {
   renderSubView();
 }
 function newSubRequest() {
-  const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false };
+  const req = { id: Date.now().toString(), date: '', time: '', location: '', classType: '', originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false, scheduleUpdated: false };
   subRequests.unshift(req);
   saveSubRequests();
   renderSubView();
@@ -1692,6 +1694,14 @@ function reopenRequest(id) {
   if (!req) return;
   req.completed = false;
   req.open = true;
+  saveSubRequests();
+  renderSubView();
+}
+
+function toggleScheduleUpdated(reqId) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  req.scheduleUpdated = !req.scheduleUpdated;
   saveSubRequests();
   renderSubView();
 }
@@ -1914,7 +1924,8 @@ function reqCard(req) {
     const esc = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
     statusChips = `<span style="color:var(--green);font-weight:600;font-size:0.82rem;">✓ ${confirmed.name}</span>
       <button class="btn btn-green btn-sm" style="padding:4px 10px;font-size:0.75rem;" onclick="event.stopPropagation();copyText(\`${esc}\`,'${bid}')">Copy Reminder</button>
-      <span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>`;
+      <span class="copied-badge" id="${bid}" style="font-size:0.72rem;">Copied!</span>
+      ${!req.scheduleUpdated && !req.completed ? '<span style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">☐ update schedule</span>' : ''}`;
   } else if (askedInsts.length) {
     statusChips = askedInsts.map(inst => {
       const bid = `ask-${req.id}-${inst.id}-q`;
@@ -1991,6 +2002,11 @@ function reqCard(req) {
         ${!req.completed ? `<p class="sub-section-label" style="margin-top:1.1rem;">Instructors</p>
         <div id="inst-list-${req.id}"></div>
         <div id="texts-${req.id}"></div>` : ''}
+        ${confirmed ? `<div onclick="toggleScheduleUpdated('${req.id}')" style="display:flex;align-items:center;gap:0.6rem;margin-top:1rem;padding:0.6rem 0.75rem;border-radius:var(--radius-sm);background:${req.scheduleUpdated ? 'var(--green-light)' : '#fffbeb'};border:1px solid ${req.scheduleUpdated ? 'var(--green)' : '#fcd34d'};cursor:pointer;user-select:none;">
+          <span style="font-size:1.1rem;line-height:1;">${req.scheduleUpdated ? '☑' : '☐'}</span>
+          <span style="font-size:0.875rem;font-weight:${req.scheduleUpdated ? '400' : '600'};color:${req.scheduleUpdated ? 'var(--green)' : '#92400e'};${req.scheduleUpdated ? 'text-decoration:line-through;' : ''}">Updated schedule online</span>
+          ${!req.scheduleUpdated ? '<span style="font-size:0.72rem;color:#92400e;margin-left:auto;">tap to check off</span>' : ''}
+        </div>` : ''}
         <div class="form-group" style="margin-top:1rem;">
           <label>Notes</label>
           <textarea rows="2" placeholder="Any notes…" oninput="updateReqField('${req.id}','notes',this.value)" style="resize:vertical;">${req.notes||''}</textarea>
