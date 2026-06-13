@@ -3214,23 +3214,29 @@ async function submitAuth() {
   if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
   btn.textContent = '…'; btn.disabled = true;
   try {
-    let result;
     if (_authMode === 'signin') {
-      result = await db.auth.signInWithPassword({ email, password });
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      if (error) { showAuthError(error.message); }
+      else if (data?.user) { await launchApp(data.user); }
     } else {
-      result = await db.auth.signUp({ email, password });
-    }
-    if (result.error) {
-      showAuthError(result.error.message);
-    } else if (_authMode === 'signup') {
-      showAuthError('Account created — signing you in…', true);
+      const { data, error } = await db.auth.signUp({ email, password });
+      if (error) { showAuthError(error.message); }
+      else if (data?.user) { await launchApp(data.user); }
+      else { showAuthError('Account created! Sign in now.', true); }
     }
   } catch(e) {
-    showAuthError('Connection error. Please try again.');
+    showAuthError('Connection error — please try again.');
     console.error('Auth error:', e);
   }
   btn.disabled = false;
   btn.textContent = _authMode === 'signin' ? 'Sign In' : 'Create Account';
+}
+
+async function launchApp(user) {
+  currentUser = user;
+  await claimExistingData(user.id);
+  showApp();
+  initApp();
 }
 
 function showAuthError(msg, isInfo = false) {
@@ -3273,15 +3279,10 @@ if (_portalToken) {
 } else {
   let _appStarted = false;
   db.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) {
-      currentUser = session.user;
-      if (!_appStarted) {
-        _appStarted = true;
-        await claimExistingData(currentUser.id);
-        showApp();
-        initApp();
-      }
-    } else {
+    if (session?.user && !_appStarted) {
+      _appStarted = true;
+      await launchApp(session.user);
+    } else if (!session?.user) {
       currentUser = null;
       _appStarted = false;
       showLogin();
