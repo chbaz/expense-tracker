@@ -1058,6 +1058,12 @@ textarea { resize: vertical; min-height: 72px; }
         </select>
       </div>
     </div>
+    <div class="form-group" style="margin-top:0.9rem;">
+      <label>Original Instructor (who needs a sub)</label>
+      <select id="nr-original-instructor">
+        <option value="">— select —</option>
+      </select>
+    </div>
     <div class="form-actions" style="margin-top:1.25rem;">
       <button class="btn btn-primary" onclick="createReqFromModal()">Create Request</button>
       <button class="btn btn-secondary" onclick="closeNewReqModal()">Cancel</button>
@@ -1617,19 +1623,26 @@ function openNewReqModal() {
   document.getElementById('nr-time').value = '';
   document.getElementById('nr-classType').value = '';
   document.getElementById('nr-location').value = '';
+  const sorted = [...instructors].sort((a,b) => a.name.localeCompare(b.name));
+  const sel = document.getElementById('nr-original-instructor');
+  sel.innerHTML = '<option value="">— select —</option>' + sorted.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+  sel.value = '';
   document.getElementById('new-req-modal').classList.add('open');
 }
 function closeNewReqModal() {
   document.getElementById('new-req-modal').classList.remove('open');
 }
 function createReqFromModal() {
+  const origInstId = document.getElementById('nr-original-instructor').value;
   const req = {
     id: Date.now().toString(),
     date: document.getElementById('nr-date').value,
     time: document.getElementById('nr-time').value,
     location: document.getElementById('nr-location').value,
     classType: document.getElementById('nr-classType').value,
-    originalInstructor: '', crossedOut: [], statuses: {}, notes: '', open: true, completed: false
+    originalInstructor: origInstId,
+    crossedOut: origInstId ? [origInstId] : [],
+    statuses: {}, notes: '', open: true, completed: false
   };
   closeNewReqModal();
   subRequests.unshift(req);
@@ -1718,6 +1731,18 @@ function setStatus(reqId, instId, status) {
   renderRequestTexts(reqId);
 }
 
+function cycleStatus(reqId, instId) {
+  const req = subRequests.find(r => r.id === reqId);
+  if (!req) return;
+  const CYCLE = [null, 'asked', 'maybe', 'no', 'confirmed'];
+  const cur = req.statuses[instId] || null;
+  const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+  req.statuses[instId] = next;
+  saveSubRequests();
+  renderRequestInstructors(reqId);
+  renderRequestTexts(reqId);
+}
+
 function ordinal(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -1755,13 +1780,35 @@ function copyText(text, badgeId) {
 function instRow(reqId, inst, s) {
   const req = subRequests.find(r => r.id === reqId);
   const crossed = req && req.crossedOut.includes(inst.id);
+
+  const STATUS_STYLES = {
+    asked:     'background:#fff3cd;border-color:#d4a017;color:#7a5c00;',
+    maybe:     'background:#e8f0fe;border-color:#4a7fd4;color:#2a5aaa;',
+    no:        'background:var(--red-light);border-color:var(--red);color:var(--red);',
+    confirmed: 'background:var(--green-light);border-color:var(--green);color:var(--green);',
+  };
+  const STATUS_LABELS = { asked:'Asked', maybe:'Maybe', no:'No', confirmed:'✓ Yes' };
+  const btnStyle = s ? STATUS_STYLES[s] : '';
+  const btnLabel = s ? STATUS_LABELS[s] : 'Ask?';
+
+  let copyBtn = '';
+  if (req && (s === 'asked' || s === 'maybe')) {
+    const txt = buildAskText(inst.name, req);
+    const bid = `ask-${reqId}-${inst.id}-r`;
+    const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+    copyBtn = `<button class="status-btn" style="padding:0.3rem 0.55rem;background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="copyText(\`${escaped}\`,'${bid}')" title="Copy ask text">📋</button><span class="copied-badge" id="${bid}">✓</span>`;
+  } else if (req && s === 'confirmed') {
+    const txt = buildReminderText(inst.name, req);
+    const bid = `rem-${reqId}-${inst.id}-r`;
+    const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+    copyBtn = `<button class="status-btn" style="padding:0.3rem 0.55rem;background:var(--green-light);border-color:var(--green);color:var(--green);" onclick="copyText(\`${escaped}\`,'${bid}')" title="Copy reminder">📋</button><span class="copied-badge" id="${bid}">✓</span>`;
+  }
+
   return `<div class="instructor-row ${s==='no'?'is-no':''} ${s==='maybe'?'is-maybe':''} ${s==='confirmed'?'is-confirmed':''}" ${crossed?'style="opacity:0.4;"':''}>
     <span class="instructor-name" onclick="toggleCrossed('${reqId}','${inst.id}')" style="cursor:pointer;${crossed?'text-decoration:line-through;':''}">${inst.name}</span>
     <div class="status-btns">
-      <button class="status-btn ${s==='asked'?'active-asked':''}" onclick="setStatus('${reqId}','${inst.id}','asked')">Asked</button>
-      <button class="status-btn ${s==='maybe'?'active-maybe':''}" onclick="setStatus('${reqId}','${inst.id}','maybe')">Maybe</button>
-      <button class="status-btn ${s==='no'?'active-no':''}" onclick="setStatus('${reqId}','${inst.id}','no')">No</button>
-      <button class="status-btn ${s==='confirmed'?'active-confirmed':''}" onclick="setStatus('${reqId}','${inst.id}','confirmed')">✓ Yes</button>
+      <button class="status-btn" style="${btnStyle}" onclick="cycleStatus('${reqId}','${inst.id}')">${btnLabel}</button>
+      ${copyBtn}
     </div>
   </div>`;
 }
@@ -1779,27 +1826,15 @@ function renderRequestInstructors(reqId) {
   const activeCat = req.classType || '';
   const sorted = [...instructors].sort((a,b) => a.name.localeCompare(b.name));
 
-  let html = '';
-  if (activeCat) {
-    const list = sorted.filter(i => (i.categories||[]).includes(activeCat));
-    html = list.length
-      ? list.map(i => instRow(reqId, i, req.statuses[i.id])).join('')
-      : '<p class="no-instructors">No instructors in this category.</p>';
-  } else {
-    const used = new Set();
-    CATEGORIES.forEach(cat => {
-      const list = sorted.filter(i => (i.categories||[]).includes(cat));
-      if (!list.length) return;
-      html += `<div class="cat-group-header">${cat}</div>`;
-      html += list.map(i => { used.add(i.id); return instRow(reqId, i, req.statuses[i.id]); }).join('');
-    });
-    const uncategorized = sorted.filter(i => !used.has(i.id));
-    if (uncategorized.length) {
-      html += `<div class="cat-group-header">OTHER</div>`;
-      html += uncategorized.map(i => instRow(reqId, i, req.statuses[i.id])).join('');
-    }
+  if (!activeCat) {
+    el.innerHTML = '<p class="no-instructors" style="text-align:center;padding:1.25rem 0;">Select a class type above to see instructors.</p>';
+    return;
   }
-  el.innerHTML = html;
+
+  const list = sorted.filter(i => (i.categories||[]).includes(activeCat));
+  el.innerHTML = list.length
+    ? list.map(i => instRow(reqId, i, req.statuses[i.id])).join('')
+    : '<p class="no-instructors">No instructors tagged for this class type.</p>';
 }
 
 function renderRequestTexts(reqId) {
@@ -1808,37 +1843,18 @@ function renderRequestTexts(reqId) {
   const req = subRequests.find(r => r.id === reqId);
   if (!req) return;
   const eligible = req.classType ? instructors.filter(i => (i.categories||[]).includes(req.classType)) : instructors;
-  const asked = eligible.filter(i => req.statuses[i.id] === 'asked' || req.statuses[i.id] === 'maybe');
   const confirmed = eligible.find(i => req.statuses[i.id] === 'confirmed');
-  if (!asked.length && !confirmed) { el.innerHTML = ''; return; }
+  if (!confirmed) { el.innerHTML = ''; return; }
 
-  let html = '';
-  if (asked.length) {
-    html += `<p class="sub-section-label" style="margin-top:1.25rem;">Ask texts</p>`;
-    html += asked.map(inst => {
-      const bid = `ask-${reqId}-${inst.id}`;
-      const txt = buildAskText(inst.name, req);
-      const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
-      return `<p style="font-size:0.85rem;color:var(--text-muted);margin:.5rem 0 .2rem">${inst.name}</p>
-        <div class="text-preview">${txt}</div>
-        <div class="copy-row">
-          <button class="btn btn-primary btn-sm" onclick="copyText(\`${escaped}\`,'${bid}')">Copy</button>
-          <span class="copied-badge" id="${bid}">Copied!</span>
-        </div>`;
-    }).join('<div style="margin-top:.75rem"></div>');
-  }
-  if (confirmed) {
-    const bid = `rem-${reqId}`;
-    const txt = buildReminderText(confirmed.name, req);
-    const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
-    html += `<p class="sub-section-label" style="margin-top:1.25rem;">Reminder for ${confirmed.name}</p>
-      <div class="text-preview">${txt}</div>
-      <div class="copy-row">
-        <button class="btn btn-green btn-sm" onclick="copyText(\`${escaped}\`,'${bid}')">Copy Reminder</button>
-        <span class="copied-badge" id="${bid}">Copied!</span>
-      </div>`;
-  }
-  el.innerHTML = html;
+  const bid = `rem-${reqId}`;
+  const txt = buildReminderText(confirmed.name, req);
+  const escaped = txt.replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+  el.innerHTML = `<p class="sub-section-label" style="margin-top:1.25rem;">Reminder for ${confirmed.name}</p>
+    <div class="text-preview">${txt}</div>
+    <div class="copy-row">
+      <button class="btn btn-green btn-sm" onclick="copyText(\`${escaped}\`,'${bid}')">Copy Reminder</button>
+      <span class="copied-badge" id="${bid}">Copied!</span>
+    </div>`;
 }
 
 function reqCard(req) {
@@ -2025,6 +2041,15 @@ function toggleInstructorList() {
 
 document.getElementById('new-instructor-name').addEventListener('keydown', e => {
   if (e.key === 'Enter') addInstructor();
+});
+
+document.getElementById('nr-classType').addEventListener('change', function() {
+  const classType = this.value;
+  const sorted = [...instructors].sort((a,b) => a.name.localeCompare(b.name));
+  const filtered = classType ? sorted.filter(i => (i.categories||[]).includes(classType)) : sorted;
+  const sel = document.getElementById('nr-original-instructor');
+  sel.innerHTML = '<option value="">— select —</option>' + filtered.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+  sel.value = '';
 });
 
 // ── Service worker ────────────────────────────────────────────────
