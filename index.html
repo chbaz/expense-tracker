@@ -3199,30 +3199,38 @@ let _authMode = 'signin';
 
 function setAuthMode(mode) {
   _authMode = mode;
-  document.getElementById('tab-signin').style.cssText = mode === 'signin'
-    ? 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);'
-    : 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);';
-  document.getElementById('tab-signup').style.cssText = mode === 'signup'
-    ? 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);'
-    : 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);';
+  const onStyle = 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);';
+  const offStyle = 'flex:1;padding:6px;border:none;border-radius:4px;font-size:0.85rem;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);';
+  document.getElementById('tab-signin').style.cssText = mode === 'signin' ? onStyle : offStyle;
+  document.getElementById('tab-signup').style.cssText = mode === 'signup' ? onStyle : offStyle;
   document.getElementById('auth-submit-btn').textContent = mode === 'signin' ? 'Sign In' : 'Create Account';
   document.getElementById('auth-error').style.display = 'none';
-  document.getElementById('auth-password').autocomplete = mode === 'signin' ? 'current-password' : 'new-password';
 }
 
 async function submitAuth() {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
-  const errEl = document.getElementById('auth-error');
   const btn = document.getElementById('auth-submit-btn');
   if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
   btn.textContent = '…'; btn.disabled = true;
-  const fn = _authMode === 'signin' ? db.auth.signInWithPassword : db.auth.signUp;
-  const { error } = await fn.call(db.auth, { email, password });
+  try {
+    let result;
+    if (_authMode === 'signin') {
+      result = await db.auth.signInWithPassword({ email, password });
+    } else {
+      result = await db.auth.signUp({ email, password });
+    }
+    if (result.error) {
+      showAuthError(result.error.message);
+    } else if (_authMode === 'signup') {
+      showAuthError('Account created — signing you in…', true);
+    }
+  } catch(e) {
+    showAuthError('Connection error. Please try again.');
+    console.error('Auth error:', e);
+  }
   btn.disabled = false;
-  setAuthMode(_authMode);
-  if (error) { showAuthError(error.message); return; }
-  if (_authMode === 'signup') showAuthError('Check your email to confirm your account, then sign in.', true);
+  btn.textContent = _authMode === 'signin' ? 'Sign In' : 'Create Account';
 }
 
 function showAuthError(msg, isInfo = false) {
@@ -3238,10 +3246,14 @@ async function signOut() {
 }
 
 async function claimExistingData(userId) {
-  await Promise.all([
-    db.from('sub_instructors').update({ user_id: userId }).is('user_id', null),
-    db.from('sub_requests').update({ user_id: userId }).is('user_id', null)
-  ]);
+  try {
+    await Promise.all([
+      db.from('sub_instructors').update({ user_id: userId }).is('user_id', null),
+      db.from('sub_requests').update({ user_id: userId }).is('user_id', null)
+    ]);
+  } catch(e) {
+    console.warn('claimExistingData failed (non-fatal):', e);
+  }
 }
 
 function showLogin() {
