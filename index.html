@@ -3214,12 +3214,13 @@ async function submitAuth() {
   if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
   btn.textContent = '…'; btn.disabled = true;
   try {
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection.')), 12000));
     if (_authMode === 'signin') {
-      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      const { data, error } = await Promise.race([db.auth.signInWithPassword({ email, password }), timeout]);
       if (error) { showAuthError(error.message); }
       else if (data?.user) { await launchApp(data.user); }
     } else {
-      const { data, error } = await db.auth.signUp({ email, password });
+      const { data, error } = await Promise.race([db.auth.signUp({ email, password }), timeout]);
       if (error) { showAuthError(error.message); }
       else if (data?.user) { await launchApp(data.user); }
       else { showAuthError('Account created! Sign in now.', true); }
@@ -3234,7 +3235,7 @@ async function submitAuth() {
 
 async function launchApp(user) {
   currentUser = user;
-  await claimExistingData(user.id);
+  claimExistingData(user.id); // fire and forget — don't block app load
   showApp();
   initApp();
 }
