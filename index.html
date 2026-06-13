@@ -401,6 +401,60 @@ textarea { resize: vertical; min-height: 72px; }
 /* ── Recent label ── */
 .recent-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; margin-top: 1.5rem; }
 
+/* ── Gear dropdown ── */
+.gear-wrap { position: relative; }
+.gear-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  min-width: 150px;
+  z-index: 200;
+  overflow: hidden;
+  display: none;
+}
+.gear-dropdown.open { display: block; }
+.gear-dropdown button {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; text-align: left;
+  padding: 0.55rem 1rem;
+  border: none; border-radius: 0;
+  background: none;
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; color: var(--text); white-space: nowrap;
+}
+.gear-dropdown button:hover { background: var(--surface-warm); }
+.gear-dropdown button.active { background: var(--accent-light); color: var(--accent); }
+
+/* More sheet (mobile) */
+.more-sheet-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 290;
+}
+.more-sheet-backdrop.open { display: block; }
+.more-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom));
+  z-index: 300;
+  box-shadow: 0 -4px 20px rgba(44,36,32,0.12);
+}
+.more-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0.4rem auto 0.85rem; }
+.more-sheet-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  width: 100%; padding: 0.8rem 1.5rem;
+  border: none; background: none;
+  font-size: 1rem; font-weight: 500; color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.more-sheet-item:hover { background: var(--surface-warm); }
+.more-sheet-item.active { color: var(--accent); }
+.more-sheet-item .more-icon { font-size: 1.2rem; width: 1.5rem; text-align: center; }
+
 /* ── Bottom nav (mobile) ── */
 .bottom-nav {
   display: none;
@@ -560,14 +614,19 @@ textarea { resize: vertical; min-height: 72px; }
     <div class="header-inner">
       <div class="logo">🌿 Studio Tracker</div>
       <nav>
-        <button class="active" onclick="showView('dashboard')">Dashboard</button>
-        <button onclick="showView('expenses')">Add Expense</button>
-        <button onclick="showView('hours')">Add Hours</button>
-        <button onclick="showView('entries')">All Entries</button>
-        <button class="nav-sep" onclick="showView('export')">Export</button>
-        <button onclick="showView('sub')">Find Sub</button>
-        <button onclick="showView('sync')">Sync</button>
-        <button onclick="showView('attendance')">Attendance</button>
+        <button class="active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</button>
+        <button data-view="expenses" onclick="showView('expenses')">Add Expense</button>
+        <button data-view="hours" onclick="showView('hours')">Add Hours</button>
+        <button data-view="entries" onclick="showView('entries')">All Entries</button>
+        <button data-view="sub" onclick="showView('sub')">Find Sub</button>
+        <button data-view="attendance" onclick="showView('attendance')">Attendance</button>
+        <div class="gear-wrap">
+          <button id="gear-nav-btn" onclick="toggleGear(event)" title="More" style="font-size:1rem;">⚙</button>
+          <div class="gear-dropdown" id="gear-dropdown">
+            <button data-view="export" onclick="showView('export')">📊 Export</button>
+            <button data-view="sync" onclick="showView('sync')">📡 Sync</button>
+          </div>
+        </div>
       </nav>
     </div>
   </header>
@@ -989,29 +1048,41 @@ textarea { resize: vertical; min-height: 72px; }
   <!-- Bottom nav (mobile) -->
   <nav class="bottom-nav">
     <div class="bottom-nav-inner">
-      <button class="tab-btn" onclick="showView('dashboard')">
+      <button class="tab-btn" data-view="dashboard" onclick="showView('dashboard')">
         <span class="tab-icon">📊</span><span class="tab-label">Dashboard</span>
       </button>
-      <button class="tab-btn" onclick="showView('expenses')">
+      <button class="tab-btn" data-view="expenses" onclick="showView('expenses')">
         <span class="tab-icon">💸</span><span class="tab-label">Expense</span>
       </button>
-      <button class="tab-btn" onclick="showView('hours')">
+      <button class="tab-btn" data-view="hours" onclick="showView('hours')">
         <span class="tab-icon">⏱</span><span class="tab-label">Hours</span>
       </button>
-      <button class="tab-btn" onclick="showView('entries')">
+      <button class="tab-btn" data-view="entries" onclick="showView('entries')">
         <span class="tab-icon">📋</span><span class="tab-label">Entries</span>
       </button>
-      <button class="tab-btn active" onclick="showView('sub')">
+      <button class="tab-btn active" data-view="sub" onclick="showView('sub')">
         <span class="tab-icon">🔄</span><span class="tab-label">Find Sub</span>
       </button>
-      <button class="tab-btn" onclick="showView('sync')">
-        <span class="tab-icon">📡</span><span class="tab-label">Sync</span>
+      <button class="tab-btn" id="gear-tab-btn" onclick="toggleGear(event)">
+        <span class="tab-icon">⚙️</span><span class="tab-label">More</span>
       </button>
-      <button class="tab-btn" onclick="showView('attendance')">
+      <button class="tab-btn" data-view="attendance" onclick="showView('attendance')">
         <span class="tab-icon">📅</span><span class="tab-label">Attendance</span>
       </button>
     </div>
   </nav>
+</div>
+
+<!-- More sheet (mobile) -->
+<div class="more-sheet-backdrop" id="more-sheet-backdrop" onclick="closeMoreSheet()"></div>
+<div class="more-sheet" id="more-sheet">
+  <div class="more-sheet-handle"></div>
+  <button class="more-sheet-item" data-view="export" onclick="showView('export');closeMoreSheet()">
+    <span class="more-icon">📊</span> Export
+  </button>
+  <button class="more-sheet-item" data-view="sync" onclick="showView('sync');closeMoreSheet()">
+    <span class="more-icon">📡</span> Sync
+  </button>
 </div>
 
 <!-- New Sub Request Modal -->
@@ -1112,9 +1183,14 @@ function initApp() {
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + id).classList.add('active');
-  const idx = ['dashboard','expenses','hours','entries','export','sub','sync','attendance'].indexOf(id);
-  document.querySelectorAll('header nav button').forEach((b,i) => b.classList.toggle('active', i === idx));
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
+  document.querySelectorAll('header nav button[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+  document.querySelectorAll('.tab-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+  const gearViews = ['export','sync'];
+  const gearBtn = document.getElementById('gear-nav-btn');
+  if (gearBtn) gearBtn.classList.toggle('active', gearViews.includes(id));
+  const gearTabBtn = document.getElementById('gear-tab-btn');
+  if (gearTabBtn) gearTabBtn.classList.toggle('active', gearViews.includes(id));
+  document.getElementById('gear-dropdown').classList.remove('open');
   window.scrollTo(0, 0);
 
   if (id === 'dashboard') renderDashboard();
@@ -1124,6 +1200,29 @@ function showView(id) {
   if (id === 'sync') { loadSyncDashboard(); }
   if (id === 'attendance') { initAttendanceView(); }
 }
+
+function toggleGear(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('gear-dropdown');
+  const sheet = document.getElementById('more-sheet');
+  const backdrop = document.getElementById('more-sheet-backdrop');
+  if (window.innerWidth <= 640) {
+    const open = sheet.style.display === 'block';
+    sheet.style.display = open ? 'none' : 'block';
+    backdrop.classList.toggle('open', !open);
+  } else {
+    dd.classList.toggle('open');
+  }
+}
+function closeMoreSheet() {
+  document.getElementById('more-sheet').style.display = 'none';
+  document.getElementById('more-sheet-backdrop').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.gear-wrap')) {
+    document.getElementById('gear-dropdown').classList.remove('open');
+  }
+});
 
 // ── DB helpers ────────────────────────────────────────────────────
 async function fetchEntries({ type, from, to } = {}) {
