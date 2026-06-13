@@ -620,14 +620,14 @@ textarea { resize: vertical; min-height: 72px; }
         <button data-view="entries" onclick="showView('entries')">All Entries</button>
         <button data-view="sub" onclick="showView('sub')">Find Sub</button>
         <button data-view="attendance" onclick="showView('attendance')">Attendance</button>
-        <div class="gear-wrap">
-          <button id="gear-nav-btn" onclick="toggleGear(event)" title="More" style="font-size:1rem;">⚙</button>
-          <div class="gear-dropdown" id="gear-dropdown">
-            <button data-view="export" onclick="showView('export')">📊 Export</button>
-            <button data-view="sync" onclick="showView('sync')">📡 Sync</button>
-          </div>
-        </div>
       </nav>
+      <div class="gear-wrap">
+        <button id="gear-nav-btn" onclick="toggleGear(event)" title="More" style="font-size:1.35rem;padding:4px 8px;line-height:1;">⚙</button>
+        <div class="gear-dropdown" id="gear-dropdown">
+          <button data-view="export" onclick="showView('export')">📊 Export</button>
+          <button data-view="sync" onclick="showView('sync')">📡 Sync</button>
+        </div>
+      </div>
     </div>
   </header>
 
