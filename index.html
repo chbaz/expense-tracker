@@ -3259,14 +3259,19 @@ const _portalToken = new URLSearchParams(location.search).get('instructor');
 if (_portalToken) {
   initInstructorPortal(_portalToken);
 } else {
+  let _appStarted = false;
   db.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
       currentUser = session.user;
-      await claimExistingData(currentUser.id);
-      showApp();
-      initApp();
+      if (!_appStarted) {
+        _appStarted = true;
+        await claimExistingData(currentUser.id);
+        showApp();
+        initApp();
+      }
     } else {
       currentUser = null;
+      _appStarted = false;
       showLogin();
     }
   });
